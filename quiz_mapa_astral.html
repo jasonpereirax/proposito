@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qual Mapa é Para Você? — Bruno</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Cinzel:wght@400;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --night: #09090f;
+  --deep: #0f0f1c;
+  --card: #14142a;
+  --card2: #1a1a32;
+  --gold: #c9a84c;
+  --gold-l: #e2c46a;
+  --gold-dim: rgba(201,168,76,.15);
+  --ivory: #f2ede4;
+  --mist: rgba(242,237,228,.7);
+  --violet: #8b5cf6;
+  --violet-dim: rgba(139,92,246,.18);
+  --rose: #d4829c;
+  --teal: #5bb8b0;
+  --amber: #d4a04a;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+
+body {
+  background: var(--night);
+  color: var(--ivory);
+  font-family: 'Jost', sans-serif;
+  font-weight: 300;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── CANVAS ── */
+#bg { position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+/* ── WRAPPER ── */
+#app {
+  position: relative; z-index:1;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 20px;
+}
+
+/* ── INTRO SCREEN ── */
+#screen-intro {
+  text-align: center;
+  max-width: 600px;
+  animation: fadeIn .8s ease forwards;
+}
+
+.brand {
+  font-family: 'Cinzel', serif;
+  font-size: .65rem;
+  letter-spacing: .5em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 40px;
+  opacity: .7;
+}
+
+.mandala-wrap {
+  width: 110px; height: 110px;
+  margin: 0 auto 36px;
+}
+
+.mandala-wrap svg { width:100%; height:100%; }
+.r1 { animation: spin 50s linear infinite; transform-origin:center; }
+.r2 { animation: spin 32s linear infinite reverse; transform-origin:center; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.intro-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  font-weight: 300;
+  line-height: 1.15;
+  margin-bottom: 18px;
+}
+
+.intro-title em { font-style:italic; color: var(--gold-l); }
+
+.intro-sub {
+  font-size: .95rem;
+  line-height: 1.85;
+  color: var(--mist);
+  margin-bottom: 44px;
+  max-width: 480px;
+  margin-left: auto; margin-right: auto;
+}
+
+.btn-start {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-size: .75rem;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--night);
+  background: linear-gradient(135deg, var(--gold-l), var(--gold));
+  padding: 16px 48px;
+  border: none; cursor: pointer;
+  clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
+  transition: transform .2s, box-shadow .2s;
+}
+
+.btn-start:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 40px rgba(201,168,76,.4);
+}
+
+.intro-note {
+  margin-top: 20px;
+  font-size: .75rem;
+  color: rgba(242,237,228,.35);
+  letter-spacing: .1em;
+}
+
+/* ── QUIZ SCREEN ── */
+#screen-quiz { display:none; width:100%; max-width:680px; }
+
+/* Progress */
+.progress-wrap {
+  margin-bottom: 36px;
+  text-align: center;
+}
+
+.progress-label {
+  font-family: 'Cinzel', serif;
+  font-size: .62rem;
+  letter-spacing: .4em;
+  color: var(--gold);
+  opacity:.6;
+  margin-bottom: 10px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 2px;
+  background: rgba(201,168,76,.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--gold-l));
+  border-radius: 2px;
+  transition: width .5s cubic-bezier(.4,0,.2,1);
+}
+
+/* Question card */
+.q-card {
+  background: var(--card);
+  border: 1px solid rgba(201,168,76,.18);
+  padding: 44px 40px 36px;
+  position: relative;
+  animation: slideIn .45s ease forwards;
+}
+
+.q-card::before, .q-card::after {
+  content:""; position:absolute;
+  width:24px; height:24px;
+  border-color: var(--gold); border-style:solid; opacity:.35;
+}
+
+.q-card::before { top:-1px; left:-1px; border-width:2px 0 0 2px; }
+.q-card::after  { bottom:-1px; right:-1px; border-width:0 2px 2px 0; }
+
+@keyframes slideIn {
+  from { opacity:0; transform: translateX(30px); }
+  to   { opacity:1; transform: translateX(0); }
+}
+
+@keyframes slideOut {
+  from { opacity:1; transform: translateX(0); }
+  to   { opacity:0; transform: translateX(-30px); }
+}
+
+.q-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: .85rem;
+  font-style: italic;
+  color: var(--gold);
+  opacity: .6;
+  margin-bottom: 10px;
+}
+
+.q-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--ivory);
+  margin-bottom: 32px;
+}
+
+/* Options */
+.options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .options-grid { grid-template-columns: 1fr; }
+  .q-card { padding: 32px 22px 28px; }
+}
+
+.opt-btn {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(201,168,76,.2);
+  color: var(--ivory);
+  font-family: 'Jost', sans-serif;
+  font-size: .88rem;
+  font-weight: 300;
+  line-height: 1.55;
+  padding: 18px 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+  display: flex; align-items: flex-start; gap: 12px;
+}
+
+.opt-btn::before {
+  content:"";
+  position:absolute; inset:0;
+  background: var(--gold-dim);
+  opacity:0;
+  transition: opacity .2s;
+}
+
+.opt-btn:hover { border-color: var(--gold); }
+.opt-btn:hover::before { opacity:1; }
+
+.opt-btn.selected {
+  border-color: var(--gold-l);
+  background: rgba(201,168,76,.12);
+}
+
+.opt-btn.selected::after {
+  content: "✦";
+  position:absolute; top:10px; right:14px;
+  color: var(--gold-l); font-size: .75rem;
+}
+
+.opt-letter {
+  font-family: 'Cinzel', serif;
+  font-size: .65rem;
+  letter-spacing: .1em;
+  color: var(--gold);
+  opacity: .65;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Nav */
+.q-nav {
+  margin-top: 24px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+.btn-back {
+  background: none;
+  border: 1px solid rgba(201,168,76,.2);
+  color: rgba(242,237,228,.5);
+  font-family: 'Jost', sans-serif;
+  font-size: .78rem;
+  letter-spacing: .12em;
+  padding: 10px 24px;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.btn-back:hover { border-color: var(--gold); color: var(--gold); }
+.btn-back:disabled { opacity:.2; cursor:default; }
+
+.btn-next {
+  font-family: 'Cinzel', serif;
+  font-size: .72rem;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--night);
+  background: linear-gradient(135deg, var(--gold-l), var(--gold));
+  padding: 12px 32px;
+  border: none; cursor: pointer;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  transition: all .2s;
+  opacity: .35;
+  pointer-events: none;
+}
+
+.btn-next.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.btn-next.active:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(201,168,76,.4); }
+
+/* ── RESULT SCREEN ── */
+#screen-result {
+  display:none;
+  width:100%; max-width:700px;
+  animation: fadeIn .8s ease forwards;
+}
+
+@keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+
+.result-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.result-eyebrow {
+  font-family: 'Cinzel', serif;
+  font-size: .62rem;
+  letter-spacing: .45em;
+  color: var(--gold);
+  opacity:.65;
+  margin-bottom: 14px;
+}
+
+.result-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 300;
+  line-height: 1.25;
+  color: var(--ivory);
+  margin-bottom: 6px;
+}
+
+.result-title em { font-style:italic; }
+
+/* Product card */
+.product-card {
+  border: 1px solid;
+  padding: 40px 36px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.product-card.primary {
+  border-color: var(--gold);
+  background: rgba(22,22,42,.95);
+}
+
+.product-card.secondary {
+  border-color: rgba(201,168,76,.25);
+  background: rgba(14,14,28,.8);
+}
+
+.product-tag {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-size: .58rem;
+  letter-spacing: .35em;
+  text-transform: uppercase;
+  padding: 5px 16px;
+  margin-bottom: 18px;
+}
+
+.product-card.primary .product-tag {
+  background: linear-gradient(135deg, var(--gold-l), var(--gold));
+  color: var(--night);
+}
+
+.product-card.secondary .product-tag {
+  border: 1px solid rgba(201,168,76,.3);
+  color: var(--gold);
+}
+
+.product-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 300;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+
+.product-card.primary .product-name { color: var(--gold-l); }
+.product-card.secondary .product-name { color: var(--ivory); }
+
+.product-why {
+  font-size: .9rem;
+  line-height: 1.8;
+  color: var(--mist);
+  margin-bottom: 24px;
+}
+
+.product-points {
+  list-style: none;
+  display: flex; flex-direction: column; gap: 8px;
+  margin-bottom: 28px;
+}
+
+.product-points li {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: .84rem;
+  line-height: 1.55;
+  color: rgba(242,237,228,.65);
+}
+
+.product-points li::before {
+  content: "✦";
+  color: var(--gold);
+  font-size: .65rem;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.product-price {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.2rem;
+  font-weight: 300;
+  color: var(--gold-l);
+  margin-bottom: 4px;
+}
+
+.product-price-note {
+  font-size: .75rem;
+  color: rgba(242,237,228,.35);
+  margin-bottom: 22px;
+}
+
+.btn-cta {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-size: .72rem;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--night);
+  background: linear-gradient(135deg, var(--gold-l), var(--gold));
+  padding: 14px 36px;
+  border: none; cursor: pointer;
+  text-decoration: none;
+  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  transition: all .2s;
+}
+
+.btn-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(201,168,76,.4); }
+
+.btn-cta-outline {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-size: .68rem;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: none;
+  border: 1px solid rgba(201,168,76,.35);
+  padding: 12px 28px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s;
+}
+
+.btn-cta-outline:hover { border-color: var(--gold); background: var(--gold-dim); }
+
+/* Profile badge */
+.profile-badge {
+  display: flex; align-items: center; gap: 18px;
+  background: var(--violet-dim);
+  border: 1px solid rgba(139,92,246,.3);
+  padding: 20px 24px;
+  margin-bottom: 32px;
+}
+
+.profile-icon { font-size: 2rem; flex-shrink: 0; }
+
+.profile-label {
+  font-family: 'Cinzel', serif;
+  font-size: .62rem;
+  letter-spacing: .3em;
+  color: #a78bfa;
+  opacity: .7;
+  margin-bottom: 4px;
+}
+
+.profile-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.3rem;
+  font-style: italic;
+  color: var(--ivory);
+}
+
+/* Retake */
+.retake-wrap {
+  text-align: center;
+  margin-top: 28px;
+}
+
+.btn-retake {
+  background: none; border: none;
+  font-family: 'Jost', sans-serif;
+  font-size: .8rem;
+  letter-spacing: .15em;
+  color: rgba(242,237,228,.35);
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color .2s;
+}
+
+.btn-retake:hover { color: var(--gold); }
+
+/* ── ORNAMENT ── */
+.ornament {
+  text-align: center;
+  color: var(--gold);
+  font-size: .9rem;
+  letter-spacing: .4em;
+  opacity: .35;
+  margin: 20px 0;
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<div id="app">
+
+  <!-- INTRO -->
+  <div id="screen-intro">
+    <p class="brand">Bruno · Espiritualidade &amp; Astrologia</p>
+
+    <div class="mandala-wrap">
+      <svg viewBox="0 0 110 110" fill="none">
+        <circle cx="55" cy="55" r="52" stroke="rgba(201,168,76,.15)" stroke-width="1"/>
+        <circle cx="55" cy="55" r="38" stroke="rgba(201,168,76,.28)" stroke-width="1"/>
+        <circle cx="55" cy="55" r="24" stroke="rgba(201,168,76,.45)" stroke-width="1"/>
+        <g class="r1">
+          <circle cx="55" cy="3"  r="3" fill="rgba(201,168,76,.5)"/>
+          <circle cx="55" cy="107" r="3" fill="rgba(201,168,76,.5)"/>
+          <circle cx="3"  cy="55" r="3" fill="rgba(201,168,76,.5)"/>
+          <circle cx="107" cy="55" r="3" fill="rgba(201,168,76,.5)"/>
+          <circle cx="19" cy="19" r="2" fill="rgba(201,168,76,.3)"/>
+          <circle cx="91" cy="91" r="2" fill="rgba(201,168,76,.3)"/>
+          <circle cx="91" cy="19" r="2" fill="rgba(201,168,76,.3)"/>
+          <circle cx="19" cy="91" r="2" fill="rgba(201,168,76,.3)"/>
+        </g>
+        <g class="r2">
+          <polygon points="55,31 58,47 55,49 52,47" fill="rgba(201,168,76,.55)"/>
+          <polygon points="55,79 58,63 55,61 52,63" fill="rgba(201,168,76,.55)"/>
+          <polygon points="31,55 47,58 49,55 47,52" fill="rgba(201,168,76,.55)"/>
+          <polygon points="79,55 63,58 61,55 63,52" fill="rgba(201,168,76,.55)"/>
+        </g>
+        <circle cx="55" cy="55" r="7" fill="rgba(201,168,76,.12)" stroke="rgba(201,168,76,.65)" stroke-width="1.2"/>
+        <circle cx="55" cy="55" r="2.5" fill="rgba(201,168,76,.9)"/>
+      </svg>
+    </div>
+
+    <h1 class="intro-title">Qual <em>Mapa Astral</em><br>é feito para você?</h1>
+    <p class="intro-sub">Responda 7 perguntas rápidas e descubra qual leitura se alinha com o que você mais precisa agora — propósito, amor, carreira ou a visão do seu próximo ano.</p>
+
+    <button class="btn-start" onclick="startQuiz()">Iniciar o Quiz ✦</button>
+    <p class="intro-note">✦ &nbsp; 7 perguntas · menos de 2 minutos</p>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="screen-quiz">
+    <div class="progress-wrap">
+      <div class="progress-label" id="prog-label">Pergunta 1 de 7</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+    <div class="q-card" id="q-card">
+      <div class="q-num" id="q-num"></div>
+      <div class="q-text" id="q-text"></div>
+      <div class="options-grid" id="q-options"></div>
+      <div class="q-nav">
+        <button class="btn-back" id="btn-back" onclick="goBack()">← Voltar</button>
+        <button class="btn-next" id="btn-next" onclick="goNext()">Próxima →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="screen-result" id="screen-result">
+    <div class="result-header">
+      <p class="result-eyebrow">✦ &nbsp; Sua leitura astral ideal &nbsp; ✦</p>
+      <h2 class="result-title">O astral revelou o que <em>você precisa</em></h2>
+    </div>
+    <div id="profile-badge-wrap"></div>
+    <div id="result-primary"></div>
+    <div class="ornament">· · ·</div>
+    <div id="result-secondary"></div>
+    <div class="retake-wrap">
+      <button class="btn-retake" onclick="resetQuiz()">↩ Refazer o quiz</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── STARFIELD ──
+(function(){
+  const c = document.getElementById('bg');
+  const ctx = c.getContext('2d');
+  let W, H, stars=[];
+  function resize(){ W=c.width=innerWidth; H=c.height=innerHeight; }
+  function init(){
+    stars=[];
+    for(let i=0;i<180;i++) stars.push({
+      x:Math.random()*W, y:Math.random()*H,
+      r:Math.random()*1.1+.2, a:Math.random(),
+      sp:Math.random()*.005+.001, ph:Math.random()*Math.PI*2
+    });
+  }
+  function draw(t){
+    ctx.clearRect(0,0,W,H);
+    stars.forEach(s=>{
+      const al = s.a*(.35+.65*Math.sin(t*s.sp+s.ph));
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(210,195,255,${al})`; ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize',()=>{resize();init();});
+  resize(); init(); requestAnimationFrame(draw);
+})();
+
+// ── QUIZ DATA ──
+const questions = [
+  {
+    text: "Quando você olha para dentro, qual é a pergunta que mais te inquieta?",
+    options: [
+      { label: "\"Para onde devo ir? Qual é meu verdadeiro propósito?\"",   scores: { proposito:3, carreira:1 } },
+      { label: "\"Por que repito os mesmos padrões nos relacionamentos?\"",  scores: { amoroso:3, proposito:1 } },
+      { label: "\"Estou no caminho certo profissional e financeiramente?\"", scores: { carreira:3, proposito:1 } },
+      { label: "\"O que o próximo ciclo da minha vida reserva?\"",           scores: { previsao:3, carreira:1 } },
+    ]
+  },
+  {
+    text: "Em qual área da sua vida você sente mais necessidade de clareza agora?",
+    options: [
+      { label: "Missão de vida e evolução espiritual",   scores: { proposito:3 } },
+      { label: "Amor, vínculos e vida afetiva",          scores: { amoroso:3 } },
+      { label: "Carreira, dinheiro e prosperidade",      scores: { carreira:3 } },
+      { label: "Planejamento e decisões para o futuro",  scores: { previsao:3 } },
+    ]
+  },
+  {
+    text: "Como você descreveria o momento de vida que está vivendo agora?",
+    options: [
+      { label: "Em busca de sentido — sinto que há algo maior esperando por mim", scores: { proposito:3, mini:1 } },
+      { label: "Em transição — algo está mudando e quero entender o que vem",     scores: { previsao:3, proposito:1 } },
+      { label: "Em conflito interno — padrões que não consigo quebrar",            scores: { amoroso:2, proposito:2 } },
+      { label: "Em crescimento — quero alavancar carreira e finanças",             scores: { carreira:3 } },
+    ]
+  },
+  {
+    text: "O que você mais quer ao receber uma leitura astral?",
+    options: [
+      { label: "Entender minha alma — de onde vim, o que vim fazer",               scores: { proposito:3 } },
+      { label: "Entender meu coração — como amo, o que me bloqueia afetivamente",  scores: { amoroso:3 } },
+      { label: "Entender meu caminho — vocação, dinheiro, reconhecimento",         scores: { carreira:3 } },
+      { label: "Entender meu futuro — oportunidades e desafios que se aproximam",  scores: { previsao:3 } },
+    ]
+  },
+  {
+    text: "Qual dessas frases ressoa mais com o que você sente hoje?",
+    options: [
+      { label: "\"Tenho talentos que ainda não coloquei no mundo.\"",                  scores: { proposito:2, carreira:1, mini:1 } },
+      { label: "\"Me saboto nas relações e não sei por quê.\"",                        scores: { amoroso:3, proposito:1 } },
+      { label: "\"Trabalho muito, mas a prosperidade ainda não chegou do jeito que quero.\"", scores: { carreira:3 } },
+      { label: "\"Estou em um ponto de virada e preciso de direção.\"",                scores: { previsao:3, proposito:1 } },
+    ]
+  },
+  {
+    text: "Você já fez alguma leitura astral antes?",
+    options: [
+      { label: "Nunca fiz — quero uma introdução acessível ao meu mapa",       scores: { mini:3, proposito:1 } },
+      { label: "Já fiz algo básico — quero aprofundar em um tema específico",  scores: { proposito:1, amoroso:1, carreira:1, previsao:1 } },
+      { label: "Já tenho algum conhecimento — quero uma análise mais profunda", scores: { proposito:2, amoroso:1, carreira:1 } },
+      { label: "Sim, frequentemente — quero uma visão atualizada do meu ciclo", scores: { previsao:3 } },
+    ]
+  },
+  {
+    text: "Se você pudesse ter apenas uma resposta agora, qual seria?",
+    options: [
+      { label: "\"Qual é minha missão kármica nesta vida?\"",                   scores: { proposito:3 } },
+      { label: "\"Qual tipo de pessoa e relação é mais compatível comigo?\"",   scores: { amoroso:3 } },
+      { label: "\"Qual carreira e fonte de renda se alinham com meu mapa?\"",  scores: { carreira:3 } },
+      { label: "\"O que os astros indicam para os próximos 12 meses?\"",       scores: { previsao:3 } },
+    ]
+  },
+];
+
+const products = {
+  proposito: {
+    icon: "☽",
+    profile: "A Alma em Busca de Propósito",
+    profileDesc: "Você está num momento de reconexão profunda com sua essência. As estrelas apontam para dentro.",
+    name: "Mapa de Propósito Kármico",
+    tag: "✦ Recomendado para você",
+    why: "Suas respostas revelam uma busca genuína por sentido e missão de vida. Você sente que há algo maior esperando — e há. O Mapa de Propósito Kármico vai desvelar suas lições kármicas, seus dons naturais e o caminho que sua alma veio percorrer.",
+    points: [
+      "Análise do Nodo Norte e Sul — missão e bagagem kármica",
+      "Saturno e Quíron: onde você cresce e onde você cura",
+      "Propósito público e vocação através do Meio do Céu",
+      "Padrões emocionais que pedem transformação",
+      "Orientações práticas para alinhar-se à missão",
+    ],
+    price: "R$ 197",
+    priceNote: "pagamento único · entrega em até 7 dias úteis",
+    cta: "Quero Meu Mapa de Propósito",
+  },
+  amoroso: {
+    icon: "♀",
+    profile: "O Coração que Busca Conexão",
+    profileDesc: "Seus padrões afetivos pedem atenção. O amor tem muito a revelar sobre quem você é.",
+    name: "Mapa Amoroso",
+    tag: "✦ Recomendado para você",
+    why: "Suas respostas mostram que a vida afetiva é onde você mais precisa de luz agora. O Mapa Amoroso revela como você ama, o que te bloqueia nas relações e qual tipo de parceria se alinha com sua essência.",
+    points: [
+      "Vênus e Marte: como você ama e como você deseja",
+      "Casas 5, 7 e 8: romance, compromisso e intimidade",
+      "Padrões afetivos repetitivos e suas raízes kármicas",
+      "A Lua: suas necessidades emocionais mais profundas",
+      "O perfil de parceiro(a) mais compatível com seu mapa",
+    ],
+    price: "R$ 167",
+    priceNote: "pagamento único · entrega em até 7 dias úteis",
+    cta: "Quero Meu Mapa Amoroso",
+  },
+  carreira: {
+    icon: "♃",
+    profile: "O Espírito Empreendedor",
+    profileDesc: "A prosperidade está no horizonte. Seu mapa guarda o caminho para o sucesso alinhado à sua alma.",
+    name: "Mapa de Carreira e Prosperidade",
+    tag: "✦ Recomendado para você",
+    why: "Suas respostas apontam para uma busca por alinhamento profissional e financeiro. O Mapa de Carreira revela sua vocação natural, como a prosperidade flui no seu mapa e quais caminhos trazem realização verdadeira.",
+    points: [
+      "Meio do Céu e Casa 10: vocação e reconhecimento público",
+      "Júpiter: onde a abundância flui com mais facilidade",
+      "Casas 2 e 8: sua relação com dinheiro e finanças",
+      "Potencial empreendedor: Marte, Urano e independência",
+      "Setores profissionais mais alinhados ao seu perfil",
+    ],
+    price: "R$ 167",
+    priceNote: "pagamento único · entrega em até 7 dias úteis",
+    cta: "Quero Meu Mapa de Carreira",
+  },
+  previsao: {
+    icon: "✦",
+    profile: "O Ser que Navega Ciclos",
+    profileDesc: "Você está num momento de virada. Os astros têm muito a dizer sobre o que se aproxima.",
+    name: "Previsão Anual Personalizada",
+    tag: "✦ Recomendado para você",
+    why: "Suas respostas indicam que você está num ponto de transição importante e quer se preparar para o que vem. A Previsão Anual mapeia os trânsitos planetários dos próximos 12 meses e revela oportunidades, desafios e momentos-chave do seu ciclo.",
+    points: [
+      "Trânsitos de Júpiter e Saturno no seu mapa pessoal",
+      "Eclipses do ano e as casas que eles ativam",
+      "Mercúrio Retrógrado: quando avançar e quando pausar",
+      "Meses de oportunidade e meses de atenção",
+      "Retorno Solar: o tema central do seu ano pessoal",
+    ],
+    price: "R$ 247",
+    priceNote: "pagamento único · entrega em até 10 dias úteis",
+    cta: "Quero Minha Previsão Anual",
+  },
+  mini: {
+    icon: "◉",
+    profile: "O Explorador do Autoconhecimento",
+    profileDesc: "Você está dando os primeiros passos numa jornada transformadora de autoconhecimento.",
+    name: "Mini Mapa Astral",
+    tag: "✦ Recomendado para você",
+    why: "Suas respostas indicam que você está começando a explorar o universo da astrologia. O Mini Mapa Astral é a porta de entrada perfeita: uma análise acessível dos seus traços dominantes, pontos fortes, pontos fracos e desafios emocionais.",
+    points: [
+      "Sol, Lua e Ascendente: os três pilares da sua personalidade",
+      "Pontos fortes: seus dons e talentos naturais",
+      "Pontos fracos: áreas que pedem atenção e cuidado",
+      "Desafios emocionais: padrões que você tende a repetir",
+      "Linguagem acessível — ideal para quem está começando",
+    ],
+    price: "R$ 97",
+    priceNote: "pagamento único · entrega em até 5 dias úteis",
+    cta: "Quero Meu Mini Mapa",
+  },
+};
+
+// Second recommendations (complementary)
+const secondaryMap = {
+  proposito: 'mini',
+  amoroso: 'proposito',
+  carreira: 'previsao',
+  previsao: 'proposito',
+  mini: 'proposito',
+};
+
+// ── STATE ──
+let current = 0;
+let answers = []; // index of chosen option per question
+let scores = { proposito:0, amoroso:0, carreira:0, previsao:0, mini:0 };
+
+function startQuiz() {
+  document.getElementById('screen-intro').style.display = 'none';
+  document.getElementById('screen-quiz').style.display = 'block';
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = questions[current];
+  document.getElementById('prog-label').textContent = `Pergunta ${current+1} de ${questions.length}`;
+  document.getElementById('prog-fill').style.width = `${((current)/questions.length)*100}%`;
+  document.getElementById('q-num').textContent = `${String(current+1).padStart(2,'0')} / ${String(questions.length).padStart(2,'0')}`;
+  document.getElementById('q-text').textContent = q.text;
+
+  const grid = document.getElementById('q-options');
+  grid.innerHTML = '';
+  const letters = ['A','B','C','D'];
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'opt-btn' + (answers[current] === i ? ' selected' : '');
+    btn.innerHTML = `<span class="opt-letter">${letters[i]}</span><span>${opt.label}</span>`;
+    btn.onclick = () => selectOption(i);
+    grid.appendChild(btn);
+  });
+
+  document.getElementById('btn-back').disabled = current === 0;
+  const nextBtn = document.getElementById('btn-next');
+  if (answers[current] !== undefined) {
+    nextBtn.classList.add('active');
+    nextBtn.textContent = current === questions.length - 1 ? 'Ver Resultado ✦' : 'Próxima →';
+  } else {
+    nextBtn.classList.remove('active');
+    nextBtn.textContent = current === questions.length - 1 ? 'Ver Resultado ✦' : 'Próxima →';
+  }
+}
+
+function selectOption(i) {
+  answers[current] = i;
+  document.querySelectorAll('.opt-btn').forEach((b, idx) => {
+    b.classList.toggle('selected', idx === i);
+  });
+  const nextBtn = document.getElementById('btn-next');
+  nextBtn.classList.add('active');
+  nextBtn.textContent = current === questions.length - 1 ? 'Ver Resultado ✦' : 'Próxima →';
+}
+
+function goNext() {
+  if (answers[current] === undefined) return;
+  if (current < questions.length - 1) {
+    current++;
+    animateCard('in');
+    renderQuestion();
+  } else {
+    calculateResult();
+  }
+}
+
+function goBack() {
+  if (current > 0) {
+    current--;
+    animateCard('back');
+    renderQuestion();
+  }
+}
+
+function animateCard(dir) {
+  const card = document.getElementById('q-card');
+  card.style.animation = 'none';
+  void card.offsetWidth;
+  card.style.animation = 'slideIn .4s ease forwards';
+}
+
+function calculateResult() {
+  // Tally scores
+  scores = { proposito:0, amoroso:0, carreira:0, previsao:0, mini:0 };
+  questions.forEach((q, qi) => {
+    if (answers[qi] !== undefined) {
+      const s = q.options[answers[qi]].scores;
+      Object.entries(s).forEach(([k,v]) => { scores[k] = (scores[k]||0) + v; });
+    }
+  });
+
+  // Find primary (highest score)
+  const sorted = Object.entries(scores).sort((a,b) => b[1]-a[1]);
+  const primaryKey = sorted[0][0];
+  const secondaryKey = secondaryMap[primaryKey];
+
+  showResult(primaryKey, secondaryKey);
+}
+
+function showResult(primaryKey, secondaryKey) {
+  document.getElementById('screen-quiz').style.display = 'none';
+  const rs = document.getElementById('screen-result');
+  rs.style.display = 'block';
+  rs.style.animation = 'none'; void rs.offsetWidth; rs.style.animation = 'fadeIn .8s ease forwards';
+
+  const p = products[primaryKey];
+  const s = products[secondaryKey];
+
+  // Profile badge
+  document.getElementById('profile-badge-wrap').innerHTML = `
+    <div class="profile-badge">
+      <div class="profile-icon">${p.icon}</div>
+      <div>
+        <div class="profile-label">Seu Perfil Astral</div>
+        <div class="profile-name">${p.profile}</div>
+        <div style="font-size:.82rem;color:rgba(242,237,228,.55);margin-top:4px;line-height:1.5;">${p.profileDesc}</div>
+      </div>
+    </div>`;
+
+  // Primary product
+  document.getElementById('result-primary').innerHTML = `
+    <div class="product-card primary">
+      <span class="product-tag">${p.tag}</span>
+      <div class="product-name">${p.name}</div>
+      <p class="product-why">${p.why}</p>
+      <ul class="product-points">${p.points.map(pt=>`<li>${pt}</li>`).join('')}</ul>
+      <div class="product-price">${p.price}</div>
+      <div class="product-price-note">${p.priceNote}</div>
+      <a href="#" class="btn-cta">${p.cta}</a>
+    </div>`;
+
+  // Secondary product
+  document.getElementById('result-secondary').innerHTML = `
+    <div class="product-card secondary">
+      <span class="product-tag">Também pode te interessar</span>
+      <div class="product-name" style="font-size:clamp(1.1rem,2.5vw,1.5rem)">${s.name}</div>
+      <p class="product-why" style="font-size:.84rem;">${s.why}</p>
+      <div class="product-price" style="font-size:1.6rem;">${s.price}</div>
+      <div class="product-price-note">${s.priceNote}</div>
+      <br>
+      <a href="#" class="btn-cta-outline">${s.cta}</a>
+    </div>`;
+
+  // Scroll to top smoothly
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetQuiz() {
+  current = 0;
+  answers = [];
+  scores = { proposito:0, amoroso:0, carreira:0, previsao:0, mini:0 };
+  document.getElementById('screen-result').style.display = 'none';
+  document.getElementById('screen-intro').style.display = 'block';
+  document.getElementById('screen-intro').style.animation = 'none';
+  void document.getElementById('screen-intro').offsetWidth;
+  document.getElementById('screen-intro').style.animation = 'fadeIn .8s ease forwards';
+}
+</script>
+</body>
+</html>
