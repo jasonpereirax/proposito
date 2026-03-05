@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa de Propósito Kármico — Bruno</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Cinzel:wght@400;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --midnight: #0b0b14;
+    --deep: #11111f;
+    --card: #16162a;
+    --gold: #c9a84c;
+    --gold-light: #e8c96a;
+    --gold-dim: rgba(201,168,76,0.18);
+    --ivory: #f5f0e8;
+    --mist: rgba(245,240,232,0.65);
+    --purple: #6b4fa0;
+    --purple-dim: rgba(107,79,160,0.2);
+    --star: #d4c5f9;
+  }
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--midnight);
+    color: var(--ivory);
+    font-family: 'Jost', sans-serif;
+    font-weight: 300;
+    overflow-x: hidden;
+  }
+
+  /* ─── STARFIELD ─── */
+  #stars-canvas {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  }
+
+  /* ─── GLOBAL LAYOUT ─── */
+  section { position: relative; z-index: 1; }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  /* ─── DIVIDER ─── */
+  .sigil {
+    text-align: center;
+    color: var(--gold);
+    font-size: 1.1rem;
+    letter-spacing: .35em;
+    opacity: .55;
+    margin: 0 auto 18px;
+  }
+
+  .rule {
+    width: 80px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 0 auto;
+  }
+
+  /* ─── HERO ─── */
+  #hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 80px 28px 60px;
+    background: radial-gradient(ellipse 70% 60% at 50% 30%, rgba(107,79,160,.22) 0%, transparent 70%);
+  }
+
+  .hero-eyebrow {
+    font-family: 'Cinzel', serif;
+    font-size: .72rem;
+    letter-spacing: .5em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 36px;
+    opacity: 0;
+    animation: fadeUp .9s .2s forwards;
+  }
+
+  .hero-mandala {
+    width: 130px; height: 130px;
+    margin: 0 auto 40px;
+    opacity: 0;
+    animation: fadeUp .9s .35s forwards;
+  }
+
+  .hero-mandala svg { width: 100%; height: 100%; }
+
+  @keyframes spin-slow { to { transform: rotate(360deg); } }
+  @keyframes spin-rev  { to { transform: rotate(-360deg); } }
+
+  .ring-outer { animation: spin-slow 40s linear infinite; transform-origin: center; }
+  .ring-inner { animation: spin-rev  28s linear infinite; transform-origin: center; }
+
+  .hero-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2.6rem, 7vw, 5rem);
+    font-weight: 300;
+    line-height: 1.12;
+    letter-spacing: .02em;
+    color: var(--ivory);
+    margin-bottom: 12px;
+    opacity: 0;
+    animation: fadeUp .9s .5s forwards;
+  }
+
+  .hero-title em {
+    font-style: italic;
+    color: var(--gold-light);
+  }
+
+  .hero-subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.1rem, 3vw, 1.55rem);
+    font-weight: 300;
+    font-style: italic;
+    color: var(--mist);
+    margin-bottom: 44px;
+    max-width: 580px;
+    line-height: 1.6;
+    opacity: 0;
+    animation: fadeUp .9s .65s forwards;
+  }
+
+  .hero-cta {
+    opacity: 0;
+    animation: fadeUp .9s .8s forwards;
+  }
+
+  .btn-primary {
+    display: inline-block;
+    font-family: 'Cinzel', serif;
+    font-size: .8rem;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    color: var(--midnight);
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    padding: 16px 44px;
+    border: none; cursor: pointer;
+    text-decoration: none;
+    position: relative;
+    transition: transform .2s, box-shadow .2s;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(201,168,76,.45);
+  }
+
+  .hero-scroll {
+    position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    font-size: .65rem; letter-spacing: .3em; color: var(--gold); opacity: .45;
+    animation: bob 2.5s ease-in-out infinite;
+  }
+
+  @keyframes bob { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(6px); } }
+
+  /* ─── PROMISE STRIP ─── */
+  #promise {
+    background: linear-gradient(135deg, rgba(107,79,160,.18), rgba(201,168,76,.08));
+    border-top: 1px solid rgba(201,168,76,.18);
+    border-bottom: 1px solid rgba(201,168,76,.18);
+    padding: 48px 28px;
+  }
+
+  .promise-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+    max-width: 860px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .promise-item .p-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.8rem;
+    font-style: italic;
+    color: var(--gold);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .promise-item .p-label {
+    font-size: .78rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--mist);
+    opacity: .7;
+  }
+
+  /* ─── SECTION BASE ─── */
+  .section-pad { padding: 100px 28px; }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+
+  .section-label {
+    font-family: 'Cinzel', serif;
+    font-size: .68rem;
+    letter-spacing: .5em;
+    color: var(--gold);
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 300;
+    line-height: 1.2;
+    color: var(--ivory);
+  }
+
+  .section-title em { color: var(--gold-light); font-style: italic; }
+
+  .section-body {
+    font-size: .98rem;
+    line-height: 1.9;
+    color: rgba(245,240,232,.72);
+    max-width: 620px;
+    margin: 20px auto 0;
+    text-align: center;
+  }
+
+  /* ─── PAIN / HOOK ─── */
+  #hook { background: var(--deep); }
+
+  .hook-questions {
+    list-style: none;
+    display: flex; flex-direction: column; gap: 18px;
+    max-width: 620px;
+    margin: 0 auto 50px;
+  }
+
+  .hook-questions li {
+    display: flex; align-items: flex-start; gap: 16px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.1rem, 2.5vw, 1.45rem);
+    font-style: italic;
+    line-height: 1.45;
+    color: var(--mist);
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: opacity .6s, transform .6s;
+  }
+
+  .hook-questions li.visible { opacity: 1; transform: none; }
+
+  .hook-questions li::before {
+    content: "✦";
+    color: var(--gold);
+    font-style: normal;
+    font-size: .9rem;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  .hook-answer {
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.3rem, 3vw, 1.9rem);
+    font-weight: 600;
+    color: var(--gold-light);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.4;
+  }
+
+  /* ─── WHAT IS ─── */
+  #whatis {
+    background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(107,79,160,.12) 0%, transparent 70%);
+  }
+
+  .whatis-box {
+    border: 1px solid rgba(201,168,76,.22);
+    background: rgba(22,22,42,.7);
+    padding: 52px 48px;
+    max-width: 700px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .whatis-box::before, .whatis-box::after {
+    content: "";
+    position: absolute;
+    width: 28px; height: 28px;
+    border-color: var(--gold);
+    border-style: solid;
+    opacity: .5;
+  }
+
+  .whatis-box::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+  .whatis-box::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+  .whatis-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.15rem, 2.5vw, 1.5rem);
+    font-weight: 300;
+    line-height: 1.75;
+    color: var(--mist);
+    text-align: center;
+  }
+
+  .whatis-text strong { color: var(--gold-light); font-weight: 600; }
+
+  /* ─── DELIVERABLES ─── */
+  #delivers { background: var(--deep); }
+
+  .delivers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 24px;
+  }
+
+  .deliver-card {
+    background: var(--card);
+    border: 1px solid rgba(201,168,76,.14);
+    padding: 36px 28px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .3s, transform .3s;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  .deliver-card.visible { opacity: 1; transform: none; }
+  .deliver-card:hover { border-color: rgba(201,168,76,.45); transform: translateY(-4px); }
+
+  .deliver-card::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0;
+    transition: opacity .3s;
+  }
+
+  .deliver-card:hover::before { opacity: 1; }
+
+  .deliver-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 3rem;
+    font-style: italic;
+    color: var(--gold-dim);
+    line-height: 1;
+    position: absolute; top: 20px; right: 24px;
+  }
+
+  .deliver-icon { font-size: 1.6rem; margin-bottom: 16px; }
+
+  .deliver-title {
+    font-family: 'Cinzel', serif;
+    font-size: .82rem;
+    letter-spacing: .12em;
+    color: var(--gold-light);
+    margin-bottom: 12px;
+  }
+
+  .deliver-desc {
+    font-size: .88rem;
+    line-height: 1.75;
+    color: rgba(245,240,232,.62);
+  }
+
+  /* ─── FOR WHOM ─── */
+  #forwho {
+    background: linear-gradient(180deg, var(--midnight), var(--deep));
+  }
+
+  .forwho-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    max-width: 780px;
+    margin: 0 auto;
+  }
+
+  .forwho-item {
+    display: flex; align-items: flex-start; gap: 14px;
+    background: rgba(107,79,160,.1);
+    border: 1px solid rgba(107,79,160,.25);
+    padding: 20px 22px;
+    font-size: .9rem;
+    line-height: 1.6;
+    color: rgba(245,240,232,.78);
+  }
+
+  .forwho-item .fi-icon {
+    color: var(--star);
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ─── PROCESS ─── */
+  #process { background: var(--midnight); }
+
+  .process-steps {
+    display: flex; flex-direction: column; gap: 0;
+    max-width: 680px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .process-steps::before {
+    content: "";
+    position: absolute; top: 0; bottom: 0; left: 27px; width: 1px;
+    background: linear-gradient(180deg, transparent, var(--gold), transparent);
+    opacity: .35;
+  }
+
+  .process-step {
+    display: flex; gap: 28px; align-items: flex-start;
+    padding: 28px 0;
+    opacity: 0; transform: translateY(16px);
+    transition: opacity .5s, transform .5s;
+  }
+
+  .process-step.visible { opacity: 1; transform: none; }
+
+  .step-num {
+    width: 54px; height: 54px; flex-shrink: 0;
+    border: 1px solid var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem;
+    font-style: italic;
+    color: var(--gold);
+    background: var(--midnight);
+    position: relative; z-index: 1;
+  }
+
+  .step-content h4 {
+    font-family: 'Cinzel', serif;
+    font-size: .82rem;
+    letter-spacing: .15em;
+    color: var(--gold-light);
+    margin-bottom: 8px;
+  }
+
+  .step-content p {
+    font-size: .9rem;
+    line-height: 1.75;
+    color: rgba(245,240,232,.65);
+  }
+
+  /* ─── TESTIMONIALS ─── */
+  #testimonials { background: var(--deep); }
+
+  .testimonial-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+  }
+
+  .testimonial-card {
+    background: var(--card);
+    border: 1px solid rgba(201,168,76,.1);
+    padding: 36px 28px;
+    position: relative;
+  }
+
+  .testimonial-card::before {
+    content: "\201C";
+    position: absolute; top: 16px; left: 24px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 4rem;
+    line-height: 1;
+    color: var(--gold);
+    opacity: .2;
+  }
+
+  .testimonial-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    font-style: italic;
+    line-height: 1.7;
+    color: var(--mist);
+    margin-bottom: 24px;
+  }
+
+  .testimonial-author {
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--purple), var(--gold));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-size: .8rem;
+    color: var(--ivory);
+    flex-shrink: 0;
+  }
+
+  .author-name {
+    font-family: 'Cinzel', serif;
+    font-size: .72rem;
+    letter-spacing: .1em;
+    color: var(--gold-light);
+  }
+
+  .author-loc {
+    font-size: .75rem;
+    color: rgba(245,240,232,.45);
+    margin-top: 2px;
+  }
+
+  .stars {
+    color: var(--gold);
+    font-size: .75rem;
+    letter-spacing: .1em;
+    margin-top: 4px;
+  }
+
+  /* ─── PRICING ─── */
+  #pricing { background: var(--midnight); }
+
+  .pricing-card {
+    max-width: 520px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid rgba(201,168,76,.3);
+    padding: 52px 48px;
+    text-align: center;
+    position: relative;
+  }
+
+  .pricing-card::before, .pricing-card::after {
+    content: "";
+    position: absolute;
+    width: 40px; height: 40px;
+    border-color: var(--gold);
+    border-style: solid;
+    opacity: .4;
+  }
+
+  .pricing-card::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+  .pricing-card::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+  .pricing-badge {
+    display: inline-block;
+    font-family: 'Cinzel', serif;
+    font-size: .65rem;
+    letter-spacing: .35em;
+    color: var(--midnight);
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    padding: 6px 20px;
+    margin-bottom: 28px;
+  }
+
+  .price-from {
+    font-size: .8rem;
+    letter-spacing: .15em;
+    color: rgba(245,240,232,.45);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .price-value {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 4rem;
+    font-weight: 300;
+    color: var(--gold-light);
+    line-height: 1;
+  }
+
+  .price-period {
+    font-size: .8rem;
+    color: rgba(245,240,232,.45);
+    margin: 8px 0 32px;
+  }
+
+  .price-includes {
+    list-style: none;
+    text-align: left;
+    margin-bottom: 40px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  .price-includes li {
+    display: flex; align-items: flex-start; gap: 12px;
+    font-size: .9rem;
+    line-height: 1.5;
+    color: rgba(245,240,232,.75);
+  }
+
+  .price-includes li .check {
+    color: var(--gold);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .price-guarantee {
+    font-size: .78rem;
+    color: rgba(245,240,232,.4);
+    margin-top: 20px;
+    font-style: italic;
+  }
+
+  /* ─── FAQ ─── */
+  #faq { background: var(--deep); }
+
+  .faq-list {
+    max-width: 680px;
+    margin: 0 auto;
+    display: flex; flex-direction: column; gap: 0;
+  }
+
+  .faq-item {
+    border-bottom: 1px solid rgba(201,168,76,.14);
+    overflow: hidden;
+  }
+
+  .faq-question {
+    width: 100%; background: none; border: none;
+    color: var(--ivory);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.15rem;
+    font-weight: 400;
+    text-align: left;
+    padding: 24px 8px;
+    cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 16px;
+    transition: color .2s;
+  }
+
+  .faq-question:hover { color: var(--gold-light); }
+
+  .faq-arrow {
+    color: var(--gold);
+    font-size: 1rem;
+    transition: transform .3s;
+    flex-shrink: 0;
+  }
+
+  .faq-item.open .faq-arrow { transform: rotate(180deg); }
+
+  .faq-answer {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .4s ease;
+    font-size: .9rem;
+    line-height: 1.85;
+    color: rgba(245,240,232,.62);
+    padding: 0 8px;
+  }
+
+  .faq-item.open .faq-answer {
+    max-height: 300px;
+    padding-bottom: 24px;
+  }
+
+  /* ─── FINAL CTA ─── */
+  #finalcta {
+    background: radial-gradient(ellipse 80% 70% at 50% 50%, rgba(107,79,160,.25) 0%, var(--midnight) 70%);
+    padding: 120px 28px;
+    text-align: center;
+  }
+
+  .finalcta-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 300;
+    line-height: 1.2;
+    color: var(--ivory);
+    max-width: 640px;
+    margin: 0 auto 20px;
+  }
+
+  .finalcta-title em { color: var(--gold-light); font-style: italic; }
+
+  .finalcta-sub {
+    font-size: .95rem;
+    color: rgba(245,240,232,.55);
+    margin-bottom: 48px;
+    font-style: italic;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    background: #08080f;
+    border-top: 1px solid rgba(201,168,76,.12);
+    padding: 40px 28px;
+    text-align: center;
+    position: relative; z-index: 1;
+  }
+
+  .footer-brand {
+    font-family: 'Cinzel', serif;
+    font-size: .8rem;
+    letter-spacing: .35em;
+    color: var(--gold);
+    opacity: .6;
+    margin-bottom: 12px;
+  }
+
+  .footer-copy {
+    font-size: .75rem;
+    color: rgba(245,240,232,.25);
+    line-height: 1.8;
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(22px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0; transform: translateY(24px);
+    transition: opacity .7s ease, transform .7s ease;
+  }
+
+  .reveal.visible { opacity: 1; transform: none; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 600px) {
+    .promise-grid { grid-template-columns: 1fr; gap: 24px; }
+    .whatis-box { padding: 36px 24px; }
+    .pricing-card { padding: 36px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+
+<!-- ═══ HERO ═══ -->
+<section id="hero">
+  <p class="hero-eyebrow">Bruno · Espiritualidade &amp; Astrologia</p>
+
+  <div class="hero-mandala">
+    <svg viewBox="0 0 130 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="65" cy="65" r="60" stroke="rgba(201,168,76,.2)" stroke-width="1"/>
+      <circle cx="65" cy="65" r="46" stroke="rgba(201,168,76,.35)" stroke-width="1"/>
+      <circle cx="65" cy="65" r="32" stroke="rgba(201,168,76,.5)" stroke-width="1"/>
+      <g class="ring-outer">
+        <circle cx="65" cy="5"  r="3.5" fill="rgba(201,168,76,.55)"/>
+        <circle cx="65" cy="125" r="3.5" fill="rgba(201,168,76,.55)"/>
+        <circle cx="5"  cy="65" r="3.5" fill="rgba(201,168,76,.55)"/>
+        <circle cx="125" cy="65" r="3.5" fill="rgba(201,168,76,.55)"/>
+        <circle cx="23" cy="23" r="2.5" fill="rgba(201,168,76,.35)"/>
+        <circle cx="107" cy="107" r="2.5" fill="rgba(201,168,76,.35)"/>
+        <circle cx="107" cy="23" r="2.5" fill="rgba(201,168,76,.35)"/>
+        <circle cx="23" cy="107" r="2.5" fill="rgba(201,168,76,.35)"/>
+      </g>
+      <g class="ring-inner">
+        <polygon points="65,33 70,55 65,57 60,55" fill="rgba(201,168,76,.6)"/>
+        <polygon points="65,97 70,75 65,73 60,75" fill="rgba(201,168,76,.6)"/>
+        <polygon points="33,65 55,70 57,65 55,60" fill="rgba(201,168,76,.6)"/>
+        <polygon points="97,65 75,70 73,65 75,60" fill="rgba(201,168,76,.6)"/>
+      </g>
+      <circle cx="65" cy="65" r="8" fill="rgba(201,168,76,.15)" stroke="rgba(201,168,76,.7)" stroke-width="1.5"/>
+      <circle cx="65" cy="65" r="3" fill="rgba(201,168,76,.9)"/>
+    </svg>
+  </div>
+
+  <h1 class="hero-title">
+    Descubra seu<br><em>Mapa de Propósito</em><br>Kármico
+  </h1>
+
+  <p class="hero-subtitle">
+    Uma leitura astral profunda que revela sua missão de vida, lições das vidas passadas e o caminho para sua evolução espiritual.
+  </p>
+
+  <div class="hero-cta">
+    <a href="#pricing" class="btn-primary">Quero Descobrir Meu Propósito</a>
+  </div>
+
+  <div class="hero-scroll">
+    <span>ROLAR</span>
+    <svg width="16" height="24" viewBox="0 0 16 24" fill="none">
+      <path d="M8 0v20M2 14l6 8 6-8" stroke="currentColor" stroke-width="1.2"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ═══ PROMISE STRIP ═══ -->
+<section id="promise">
+  <div class="promise-grid">
+    <div class="promise-item">
+      <div class="p-num">5</div>
+      <div class="p-label">Blocos de Análise</div>
+    </div>
+    <div class="promise-item">
+      <div class="p-num">100%</div>
+      <div class="p-label">Personalizado</div>
+    </div>
+    <div class="promise-item">
+      <div class="p-num">PDF</div>
+      <div class="p-label">Relatório Completo</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ HOOK / DOR ═══ -->
+<section id="hook" class="section-pad">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Você já se perguntou…</span>
+    </div>
+    <ul class="hook-questions">
+      <li>Por que, mesmo com esforço, sinto que estou no lugar errado?</li>
+      <li>Que padrões de dor eu continuo repetindo sem conseguir mudar?</li>
+      <li>Qual é realmente o meu propósito nesta vida?</li>
+      <li>O que vim aprender e o que vim ensinar ao mundo?</li>
+    </ul>
+    <p class="hook-answer reveal">
+      "As respostas já estão escritas no seu mapa astral.<br>Eu as traduzo para você."
+    </p>
+  </div>
+</section>
+
+<!-- ═══ O QUE É ═══ -->
+<section id="whatis" class="section-pad">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">O que é</span>
+      <h2 class="section-title">O <em>Mapa de Propósito</em><br>Kármico</h2>
+    </div>
+    <div class="whatis-box reveal">
+      <p class="whatis-text">
+        É um relatório astral profundo e personalizado que desvela sua <strong>missão kármica</strong>, os talentos trazidos de vidas passadas e os padrões que pedem transformação agora.<br><br>
+        Com base no seu mapa natal — posição dos planetas no momento exato do seu nascimento — revelamos <strong>quem você veio ser, o que veio superar e o que veio entregar ao mundo.</strong>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ENTREGAS ═══ -->
+<section id="delivers" class="section-pad">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">O que você recebe</span>
+      <h2 class="section-title">5 Blocos de <em>Análise Profunda</em></h2>
+    </div>
+    <div class="delivers-grid">
+      <div class="deliver-card">
+        <span class="deliver-num">01</span>
+        <div class="deliver-icon">☽</div>
+        <h3 class="deliver-title">Missão de Vida</h3>
+        <p class="deliver-desc">Análise do Nodo Norte e Sul — sua direção kármica, talentos trazidos e lições desta encarnação.</p>
+      </div>
+      <div class="deliver-card">
+        <span class="deliver-num">02</span>
+        <div class="deliver-icon">♄</div>
+        <h3 class="deliver-title">Lições Kármicas</h3>
+        <p class="deliver-desc">Saturno, Quíron e planetas retrógrados: onde você dói, onde você cresce e onde você cura os outros.</p>
+      </div>
+      <div class="deliver-card">
+        <span class="deliver-num">03</span>
+        <div class="deliver-icon">☀</div>
+        <h3 class="deliver-title">Propósito e Dom</h3>
+        <p class="deliver-desc">Sol, Lua, Ascendente e Meio do Céu: sua vocação pública e os dons que você veio expressar no mundo.</p>
+      </div>
+      <div class="deliver-card">
+        <span class="deliver-num">04</span>
+        <div class="deliver-icon">♇</div>
+        <h3 class="deliver-title">Desafios e Padrões</h3>
+        <p class="deliver-desc">Aspectos tensos e padrões emocionais herdados — e como transformá-los em combustível de evolução.</p>
+      </div>
+      <div class="deliver-card">
+        <span class="deliver-num">05</span>
+        <div class="deliver-icon">✦</div>
+        <h3 class="deliver-title">Síntese e Orientações</h3>
+        <p class="deliver-desc">Resumo claro da sua missão com orientações práticas, afirmações e práticas espirituais personalizadas.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PARA QUEM É ═══ -->
+<section id="forwho" class="section-pad">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Para quem é</span>
+      <h2 class="section-title">Este mapa é <em>para você</em> se…</h2>
+    </div>
+    <div class="forwho-list reveal">
+      <div class="forwho-item">
+        <span class="fi-icon">◈</span>
+        Sente que há um propósito maior esperando por você, mas não sabe como encontrá-lo
+      </div>
+      <div class="forwho-item">
+        <span class="fi-icon">◈</span>
+        Repete os mesmos padrões afetivos, financeiros ou profissionais sem entender o porquê
+      </div>
+      <div class="forwho-item">
+        <span class="fi-icon">◈</span>
+        Está em um momento de transição e busca clareza sobre o próximo passo
+      </div>
+      <div class="forwho-item">
+        <span class="fi-icon">◈</span>
+        Tem interesse em espiritualidade e quer integrar autoconhecimento à sua jornada
+      </div>
+      <div class="forwho-item">
+        <span class="fi-icon">◈</span>
+        Quer entender suas feridas kármicas para finalmente se libertar delas
+      </div>
+      <div class="forwho-item">
+        <span class="fi-icon">◈</span>
+        Busca validação e direção para seus dons e talentos naturais
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ COMO FUNCIONA ═══ -->
+<section id="process" class="section-pad">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Como funciona</span>
+      <h2 class="section-title">Simples, <em>profundo</em> e personalizado</h2>
+    </div>
+    <div class="process-steps">
+      <div class="process-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>Faça seu pedido</h4>
+          <p>Escolha seu mapa, realize o pagamento e preencha o formulário com data, hora e local de nascimento.</p>
+        </div>
+      </div>
+      <div class="process-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>Análise personalizada</h4>
+          <p>Preparo sua leitura com atenção individual, interpretando cada posição planetária dentro do contexto único do seu mapa.</p>
+        </div>
+      </div>
+      <div class="process-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>Entrega do relatório</h4>
+          <p>Você recebe um PDF completo e visualmente elaborado no prazo combinado, diretamente no seu e-mail.</p>
+        </div>
+      </div>
+      <div class="process-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h4>Integre e evolua</h4>
+          <p>Leia, reflita e aplique as orientações. Seu propósito se torna mais claro a cada página.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DEPOIMENTOS ═══ -->
+<section id="testimonials" class="section-pad">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Depoimentos</span>
+      <h2 class="section-title">O que dizem <em>quem já recebeu</em></h2>
+    </div>
+    <div class="testimonial-grid reveal">
+      <div class="testimonial-card">
+        <p class="testimonial-text">"Foi como se alguém tivesse finalmente colocado em palavras tudo que eu sentia mas não conseguia explicar. O mapa me deu uma clareza que nenhuma terapia tinha dado até então."</p>
+        <div class="testimonial-author">
+          <div class="avatar">AM</div>
+          <div>
+            <div class="author-name">Ana M.</div>
+            <div class="author-loc">São Paulo, SP</div>
+            <div class="stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <p class="testimonial-text">"Chorei lendo. Cada bloco tocou em algo diferente. A seção das lições kármicas me ajudou a entender por que eu sempre me sabotava nas relações."</p>
+        <div class="testimonial-author">
+          <div class="avatar">CR</div>
+          <div>
+            <div class="author-name">Camila R.</div>
+            <div class="author-loc">Curitiba, PR</div>
+            <div class="stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <p class="testimonial-text">"Nunca acreditei muito em astrologia, mas a precisão das descrições me impressionou. Hoje o mapa é meu guia de bússola para as decisões importantes."</p>
+        <div class="testimonial-author">
+          <div class="avatar">LF</div>
+          <div>
+            <div class="author-name">Lucas F.</div>
+            <div class="author-loc">Rio de Janeiro, RJ</div>
+            <div class="stars">★★★★★</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PRICING ═══ -->
+<section id="pricing" class="section-pad">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Investimento</span>
+      <h2 class="section-title">Comece sua <em>jornada</em> agora</h2>
+    </div>
+    <div class="pricing-card reveal">
+      <span class="pricing-badge">Mapa de Propósito Kármico</span>
+      <p class="price-from">por apenas</p>
+      <div class="price-value">R$ 197</div>
+      <p class="price-period">pagamento único · entrega em até 7 dias úteis</p>
+      <ul class="price-includes">
+        <li><span class="check">✦</span> Relatório em PDF completo e personalizado</li>
+        <li><span class="check">✦</span> 5 blocos de análise kármica profunda</li>
+        <li><span class="check">✦</span> Orientações práticas e afirmações personalizadas</li>
+        <li><span class="check">✦</span> Linguagem acessível — sem jargão técnico</li>
+        <li><span class="check">✦</span> Suporte por e-mail para dúvidas pós-entrega</li>
+      </ul>
+      <a href="#" class="btn-primary">Quero Meu Mapa de Propósito</a>
+      <p class="price-guarantee">✦ Satisfação garantida ou seu dinheiro de volta em 7 dias</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAQ ═══ -->
+<section id="faq" class="section-pad">
+  <div class="container">
+    <div class="section-header reveal">
+      <span class="section-label">Perguntas frequentes</span>
+      <h2 class="section-title">Tire suas <em>dúvidas</em></h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-question">
+          Preciso saber meu horário exato de nascimento?
+          <span class="faq-arrow">▾</span>
+        </button>
+        <div class="faq-answer">Quanto mais preciso o horário, mais precisa será a leitura — especialmente para o Ascendente e as Casas Astrológicas. Se não souber o horário exato, utilizamos o meio-dia como padrão e adaptamos a análise, indicando onde a incerteza pode afetar a leitura.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question">
+          Em quanto tempo recebo meu relatório?
+          <span class="faq-arrow">▾</span>
+        </button>
+        <div class="faq-answer">O prazo de entrega é de até 7 dias úteis após a confirmação do pagamento e o preenchimento do formulário com seus dados de nascimento. Você receberá o PDF diretamente no e-mail cadastrado.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question">
+          Este mapa é diferente de outros que encontro na internet?
+          <span class="faq-arrow">▾</span>
+        </button>
+        <div class="faq-answer">Sim. Ao contrário dos relatórios gerados automaticamente, cada mapa é lido e escrito de forma individual, com atenção às particularidades únicas do seu mapa natal. Não é um texto genérico — é uma análise feita para você.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question">
+          Acredito pouco em astrologia. Este produto é para mim?
+          <span class="faq-arrow">▾</span>
+        </button>
+        <div class="faq-answer">Muitas pessoas chegam céticas e saem surpreendidas com a precisão da leitura. A astrologia é uma linguagem simbólica de autoconhecimento usada há milênios. Você não precisa "acreditar" para se beneficiar — basta estar aberto à reflexão.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-question">
+          Posso pedir como presente para outra pessoa?
+          <span class="faq-arrow">▾</span>
+        </button>
+        <div class="faq-answer">Sim! Basta informar os dados de nascimento da pessoa no formulário e o e-mail de entrega. É um presente poderoso para quem está em um momento de transição ou busca de propósito.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FINAL CTA ═══ -->
+<section id="finalcta">
+  <div class="container">
+    <div class="sigil">✦ ✦ ✦</div>
+    <h2 class="finalcta-title reveal">
+      Seu propósito já existe.<br>Está esperando ser <em>lembrado.</em>
+    </h2>
+    <p class="finalcta-sub reveal">Dê o primeiro passo em direção à sua missão de vida.</p>
+    <div class="reveal">
+      <a href="#pricing" class="btn-primary">Quero Meu Mapa de Propósito Kármico</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <p class="footer-brand">Bruno · Espiritualidade &amp; Constelação Familiar</p>
+  <p class="footer-copy">
+    © 2025 · Todos os direitos reservados<br>
+    Este produto é de natureza espiritual e não substitui orientação médica ou psicológica profissional.
+  </p>
+</footer>
+
+<script>
+// ─── STARFIELD ───
+(function() {
+  const canvas = document.getElementById('stars-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars = [];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function init() {
+    stars = [];
+    for (let i = 0; i < 200; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.2 + 0.2,
+        a: Math.random(),
+        speed: Math.random() * 0.004 + 0.001,
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  function draw(t) {
+    ctx.clearRect(0, 0, W, H);
+    stars.forEach(s => {
+      const alpha = s.a * (0.4 + 0.6 * Math.sin(t * s.speed + s.phase));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(212, 197, 249, ${alpha})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', () => { resize(); init(); });
+  resize(); init();
+  requestAnimationFrame(draw);
+})();
+
+// ─── REVEAL ON SCROLL ───
+const observer = new IntersectionObserver(entries => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('visible'), i * 80);
+    }
+  });
+}, { threshold: 0.12 });
+
+document.querySelectorAll('.reveal, .deliver-card, .process-step, .hook-questions li').forEach(el => observer.observe(el));
+
+// ─── FAQ ───
+document.querySelectorAll('.faq-question').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.closest('.faq-item');
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  });
+});
+</script>
+</body>
+</html>
