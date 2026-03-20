@@ -637,8 +637,10 @@
          [C] Citação de impacto  → 60–110 chars   (aparece em toda página)
          [L] Item de lista       → 85–115 chars por item
     ═══════════════════════════════════════════════════════════ */
-    function buildPrompt() {
-      const nome     = answers['nome']        || 'Alma';
+    // ── Contexto base compartilhado pelos dois blocos ──
+    function buildContext() {
+      const nomeCompleto = answers['nome'] || 'Alma';
+      const nome     = nomeCompleto.trim().split(/\s+/)[0];
       const data     = answers['data_nasc']   ? formatDate(answers['data_nasc']) : 'não informada';
       const hora     = answers['hora_nasc']   || 'não informada';
       const cidade   = answers['cidade_nasc'] || 'não informada';
@@ -660,13 +662,31 @@
           return `${optLabels[i]}: ${resp}`;
         }).join('\n');
 
+      return { nomeCompleto, nome, data, hora, cidade, intencao, respostas };
+    }
+
+    function buildRules(nome) {
+      return `
+═══════════════════════════════════════════════
+REGRAS ABSOLUTAS — NUNCA VIOLE NENHUMA DELAS
+═══════════════════════════════════════════════
+R1. Responda APENAS com JSON válido. Zero texto fora do JSON. Zero markdown. Zero backticks.
+R2. LIMITES DE CARACTERES SÃO OBRIGATÓRIOS. Range indicado como [MIN–MAX chars].
+    Menos que o mínimo = página vazia. Mais que o máximo = layout quebrado. Ambos são erros graves.
+R3. Todos os campos são obrigatórios. Nenhum pode ser null ou vazio.
+R4. VOZ DIRETA E POSSESSIVA: escreva em segunda pessoa ("você", "seu", "sua") em TODOS os parágrafos.
+    Use linguagem possessiva: "Seu número de destino", "Sua numerologia", "Seus arquétipos".
+    O nome "${nome}" deve aparecer NO MÁXIMO 1 vez por bloco, apenas quando der ênfase real.
+    NUNCA use nome e sobrenome juntos no corpo do texto.
+R5. Citações de impacto devem ser ORIGINAIS — nunca use citações de autores reais.
+R6. Para numerologia: calcule o número somando todos os dígitos da data de nascimento e reduzindo (exceto 11 e 22).
+═══════════════════════════════════════════════`;
+    }
+
+    function buildSystemIntro(nome, data, hora, cidade, intencao, respostas) {
       return `Você é um guia de autoconhecimento e escritor espiritual de alto nível, especializado em Mapas de Propósito de Vida que combinam astrologia, numerologia e psicologia analítica (Carl Jung). Você escreve em português brasileiro.
 
-Seu estilo de escrita segue estas leis invioláveis:
-- Tom: acolhedor, provocativo, lírico e profundo — nunca genérico.
-- Voz: íntima e direta, como se você conhecesse a pessoa há anos.
-- Densidade: cada campo deve estar completamente preenchido, com profundidade conceitual, imagens poéticas e orientação prática.
-- Proibido: autoajuda rasa, frases de calendário, clichês motivacionais.
+Seu estilo: tom acolhedor, provocativo, lírico e profundo — nunca genérico. Voz íntima e direta. Cada campo completamente preenchido com profundidade e orientação prática. Proibido: autoajuda rasa, clichês motivacionais.
 
 DADOS DA PESSOA:
 Nome: ${nome}
@@ -676,38 +696,34 @@ Cidade: ${cidade}
 ${intencao ? `Intenção declarada: ${intencao}` : ''}
 
 PERFIL DO QUESTIONÁRIO:
-${respostas}
+${respostas}`;
+    }
 
-═══════════════════════════════════════════════
-REGRAS ABSOLUTAS — NUNCA VIOLE NENHUMA DELAS
-═══════════════════════════════════════════════
-R1. Responda APENAS com JSON válido. Zero texto fora do JSON. Zero markdown. Zero backticks.
-R2. LIMITES DE CARACTERES SÃO OBRIGATÓRIOS. Range indicado como [MIN–MAX chars].
-    Menos que o mínimo = página vazia. Mais que o máximo = layout quebrado. Ambos são erros graves.
-R3. Todos os campos são obrigatórios. Nenhum pode ser null ou vazio.
-R4. Arrays têm tamanho fixo: "mapa_origens"=3, "num_significados"=11, "arq_lista"=7, "alinha_passos"=4, "alinha_perguntas"=4.
-R5. Use o nome "${nome}" de forma natural, mas não repita em toda frase.
-R6. Citações de impacto devem ser ORIGINAIS — nunca use citações de autores reais.
-R7. Para numerologia: calcule o número de caminho de vida somando todos os dígitos de ${data} e reduzindo (exceto 11 e 22).
-═══════════════════════════════════════════════
+    /* ── BLOCO A — Págs 01 a 07 ──
+       capa, introdução, conceito do mapa, numerologia (2 págs), astrologia (2 págs) */
+    function buildPromptA() {
+      const { nomeCompleto, nome, data, hora, cidade, intencao, respostas } = buildContext();
 
-Gere exatamente este JSON:
+      return `${buildSystemIntro(nome, data, hora, cidade, intencao, respostas)}
+${buildRules(nome)}
+
+Gere o BLOCO A do mapa — exatamente este JSON com todos os campos:
 
 {
-  "nome":   "${nome}",
+  "nome":   "${nomeCompleto}",
   "data":   "${data}",
   "hora":   "${hora}",
   "cidade": "${cidade}",
 
   "capa_subtitulo": "[80–110 chars] Subtítulo da capa — frase que resume a promessa do mapa com tom oracular",
-  "capa_citacao":   "[60–100 chars] Frase de abertura — tom de convocação e mistério",
+  "capa_citacao":   "[60–100 chars] Frase de abertura — tom de convocação e mistério, em segunda pessoa",
 
-  "intro_p1":      "[400–440 chars] O que é propósito desmistificado — não é um cargo, é uma expressão viva. Provoque ${nome} com profundidade.",
-  "intro_p2":      "[400–440 chars] Diferença entre propósito, missão e identidade — com clareza conceitual e exemplos concretos.",
-  "intro_p3":      "[280–320 chars] A crise existencial como portal de alinhamento — reframe da dor como dado espiritual.",
+  "intro_p1":      "[400–440 chars] O que é propósito desmistificado — não é um cargo, é uma expressão viva. Voz direta em 'você'. Provoque com profundidade.",
+  "intro_p2":      "[400–440 chars] Diferença entre propósito, missão e identidade — com clareza conceitual. Voz em 'você', fale com quem lê.",
+  "intro_p3":      "[280–320 chars] A crise existencial como portal de alinhamento — reframe da dor como dado espiritual. Voz íntima.",
   "intro_citacao": "[60–100 chars] Citação de impacto original para esta página",
 
-  "mapa_p1":      "[400–440 chars] Explicação do conceito do Mapa de Propósito — o que ele é, o que revela e como funciona para ${nome}.",
+  "mapa_p1":      "[400–440 chars] Explicação do conceito do Mapa de Propósito — o que ele é e o que revela sobre você. Voz em 'você'.",
   "mapa_p2":      "[400–440 chars] Por que ele é uma ferramenta de autoconhecimento profundo — argumento filosófico e prático.",
   "mapa_origens": [
     "[85–115 chars] Origem 1: Astrologia — o mapa natal como linguagem da alma",
@@ -716,97 +732,140 @@ Gere exatamente este JSON:
   ],
   "mapa_citacao": "[60–100 chars] Citação de impacto original para esta página",
 
-  "num_intro":      "[400–440 chars] Introdução à numerologia do propósito — o que é o número de caminho de vida e por que ele importa.",
-  "num_calculo":    "[280–320 chars] Como calcular o número de caminho de vida — com exemplo passo a passo usando a data de ${nome}.",
-  "num_pessoal":    "[400–440 chars] Número de caminho de vida de ${nome} (calcule a partir de ${data}) e seu significado profundo e personalizado.",
+  "num_intro":      "[400–440 chars] Introdução à numerologia — o que é o número de caminho de vida e por que ele importa para você.",
+  "num_calculo":    "[280–320 chars] Como calcular o número de caminho de vida com a data ${data} — passo a passo direto.",
+  "num_pessoal":    "[400–440 chars] Número de caminho de vida calculado a partir de ${data} — significado profundo em segunda pessoa.",
   "num_citacao_04": "[60–100 chars] Citação de impacto original para a página 04",
 
   "num_significados": [
-    "[85–115 chars] Número 1 — Pioneiro: liderança, iniciativa, o começo de todos os ciclos",
-    "[85–115 chars] Número 2 — Mediador: cooperação, sensibilidade, a força da escuta profunda",
-    "[85–115 chars] Número 3 — Criador: expressão, comunicação, a alegria como missão",
-    "[85–115 chars] Número 4 — Construtor: estrutura, disciplina, alicerces que duram gerações",
-    "[85–115 chars] Número 5 — Explorador: liberdade, mudança, o aprendizado pelo movimento",
-    "[85–115 chars] Número 6 — Guardião: cuidado, responsabilidade, harmonia como vocação",
-    "[85–115 chars] Número 7 — Sábio: introspecção, investigação, a busca pela verdade",
-    "[85–115 chars] Número 8 — Realizador: poder, abundância, a maestria material e espiritual",
-    "[85–115 chars] Número 9 — Humanitário: compaixão, conclusão, o serviço como legado",
-    "[85–115 chars] Número 11 — Visionário: intuição elevada, inspiração, pontes entre mundos",
-    "[85–115 chars] Número 22 — Arquiteto: visão mestra, construção em grande escala, missão coletiva"
+    "[85–115 chars] Numero 1 - Pioneiro: liderança, iniciativa, o começo de todos os ciclos",
+    "[85–115 chars] Numero 2 - Mediador: cooperação, sensibilidade, a força da escuta profunda",
+    "[85–115 chars] Numero 3 - Criador: expressão, comunicação, a alegria como missão",
+    "[85–115 chars] Numero 4 - Construtor: estrutura, disciplina, alicerces que duram gerações",
+    "[85–115 chars] Numero 5 - Explorador: liberdade, mudança, o aprendizado pelo movimento",
+    "[85–115 chars] Numero 6 - Guardiao: cuidado, responsabilidade, harmonia como vocação",
+    "[85–115 chars] Numero 7 - Sabio: introspecção, investigação, a busca pela verdade",
+    "[85–115 chars] Numero 8 - Realizador: poder, abundância, maestria material e espiritual",
+    "[85–115 chars] Numero 9 - Humanitário: compaixão, conclusão, o serviço como legado",
+    "[85–115 chars] Numero 11 - Visionário: intuição elevada, inspiração, pontes entre mundos",
+    "[85–115 chars] Numero 22 - Arquiteto: visão mestra, construção em grande escala, missão coletiva"
   ],
   "num_citacao_05": "[60–100 chars] Citação de impacto original para a página 05",
 
-  "astro_intro":      "[400–440 chars] Introdução à astrologia como linguagem simbólica — não previsão, mas mapa de potencial e vocação.",
-  "astro_sol":        "[400–440 chars] O Sol natal de ${nome} (baseado em ${data}) — essência, identidade e vocação reveladas.",
+  "astro_intro":      "[400–440 chars] Introdução à astrologia — não previsão, mas mapa de potencial. Voz em 'você'.",
+  "astro_sol":        "[400–440 chars] Seu Sol natal (baseado em ${data}) — essência, identidade e vocação. Fale diretamente: 'Seu Sol...', 'Você carrega...'",
   "astro_citacao_06": "[60–100 chars] Citação de impacto original para a página 06",
 
-  "astro_lua":        "[400–440 chars] A Lua natal e seu papel emocional — como as emoções de ${nome} orientam o propósito.",
-  "astro_ascendente": "[400–440 chars] O Ascendente como expressão no mundo — como ${nome} se apresenta e como isso serve à missão.",
-  "astro_citacao_07": "[60–100 chars] Citação de impacto original para a página 07",
+  "astro_lua":        "[400–440 chars] Sua Lua natal — papel emocional e como suas emoções orientam o propósito. Voz direta: 'Sua Lua...', 'Você sente...'",
+  "astro_ascendente": "[400–440 chars] Seu Ascendente — como você se expressa e se apresenta ao mundo. Voz direta: 'Seu Ascendente...', 'Você foi projetado...'",
+  "astro_citacao_07": "[60–100 chars] Citação de impacto original para a página 07"
+}`;
+    }
 
-  "arq_conceito": "[400–440 chars] O que são arquétipos segundo Carl Jung — forças psíquicas universais que moldam comportamento e propósito.",
+    /* ── BLOCO B — Págs 08 a 15 ──
+       arquétipos (2 págs), luz e sombra (2 págs), alinhamento (2 págs), exercício, fechamento */
+    function buildPromptB() {
+      const { nomeCompleto, nome, data, hora, cidade, intencao, respostas } = buildContext();
+
+      return `${buildSystemIntro(nome, data, hora, cidade, intencao, respostas)}
+${buildRules(nome)}
+
+Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
+
+{
+  "arq_conceito": "[400–440 chars] O que são arquétipos segundo Jung — forças que operam em você. Voz em 'você': 'Em você operam...', 'Você carrega...'",
   "arq_lista": [
-    "[85–115 chars] Herói — supera obstáculos, transforma desafios em crescimento e poder",
-    "[85–115 chars] Sábio — busca verdade, orienta através do conhecimento e discernimento",
-    "[85–115 chars] Curador — transforma dor pessoal em compaixão e cura coletiva",
-    "[85–115 chars] Criador — manifesta o novo, vive pela expressão, beleza e originalidade",
-    "[85–115 chars] Guardião — protege, nutre e sustenta o que importa para o bem maior",
-    "[85–115 chars] Explorador — busca liberdade, expande as fronteiras do possível",
-    "[85–115 chars] Soberano — lidera com visão, cria ordem, estrutura e legado duradouro"
+    "[85–115 chars] Heroi - supera obstáculos, transforma desafios em crescimento e poder",
+    "[85–115 chars] Sabio - busca verdade, orienta através do conhecimento e discernimento",
+    "[85–115 chars] Curador - transforma dor pessoal em compaixão e cura coletiva",
+    "[85–115 chars] Criador - manifesta o novo, vive pela expressão, beleza e originalidade",
+    "[85–115 chars] Guardiao - protege, nutre e sustenta o que verdadeiramente importa",
+    "[85–115 chars] Explorador - busca liberdade, expande as fronteiras do possível",
+    "[85–115 chars] Soberano - lidera com visão, cria ordem, estrutura e legado duradouro"
   ],
   "arq_citacao_08": "[60–100 chars] Citação de impacto original para a página 08",
 
-  "arq_dominantes": "[400–440 chars] Os arquétipos dominantes de ${nome} identificados pelo perfil do quiz — quais forças internas pedem expressão.",
-  "arq_orientacao": "[400–440 chars] Como trabalhar com esses arquétipos no dia a dia — orientação prática, simbólica e transformadora.",
+  "arq_dominantes": "[400–440 chars] Os arquétipos dominantes identificados no seu perfil — quais forças internas pedem expressão em você agora. Voz direta.",
+  "arq_orientacao": "[400–440 chars] Como trabalhar com seus arquétipos no dia a dia — orientação prática e transformadora. Fale em segunda pessoa.",
   "arq_citacao_09": "[60–100 chars] Citação de impacto original para a página 09",
 
-  "sombra_talentos":    "[400–440 chars] Os talentos naturais de ${nome} revelados pelo perfil — o que flui com facilidade e precisa ser honrado.",
-  "sombra_sabotadores": "[400–440 chars] Os padrões sabotadores identificados — comportamentos inconscientes que bloqueiam o propósito.",
+  "sombra_talentos":    "[400–440 chars] Seus talentos naturais revelados pelo perfil — o que flui com facilidade e precisa ser honrado. Voz direta: 'Você possui...', 'Seu talento...'",
+  "sombra_sabotadores": "[400–440 chars] Seus padrões sabotadores — comportamentos inconscientes que bloqueiam seu propósito. Voz direta em 'você'.",
   "sombra_citacao_10":  "[60–100 chars] Citação de impacto original para a página 10",
 
-  "sombra_conceito":    "[400–440 chars] O que é a sombra junguiana — a parte de nós negada e como ela se manifesta no bloqueio do propósito.",
-  "sombra_integracao":  "[400–440 chars] Como integrar a sombra (não eliminar) — o processo de reconhecimento, aceitação e transmutação.",
-  "sombra_pratica":     "[280–320 chars] Exercício rápido de encontro com a sombra — uma pergunta poderosa e convite à escrita reflexiva.",
+  "sombra_conceito":    "[400–440 chars] O que é a sombra junguiana em você — o que foi negado e como se manifesta. Voz íntima em segunda pessoa.",
+  "sombra_integracao":  "[400–440 chars] Como integrar sua sombra — o processo de reconhecimento, aceitação e transmutação. Guie com 'você'.",
+  "sombra_pratica":     "[280–320 chars] Exercício rápido de encontro com a sombra — uma pergunta poderosa e convite à escrita.",
   "sombra_citacao_11":  "[60–100 chars] Citação de impacto original para a página 11",
 
-  "alinha_intro": "[400–440 chars] Como o propósito se manifesta em escolhas cotidianas de ${nome} — não é uma chegada, é um direcionamento contínuo.",
+  "alinha_intro": "[400–440 chars] Como o propósito se manifesta nas suas escolhas cotidianas — não é uma chegada, é um direcionamento. Voz em 'você'.",
   "alinha_passos": [
-    "[85–115 chars] Passo 1 — Reconheça seus picos de energia: quando você perde a noção do tempo?",
-    "[85–115 chars] Passo 2 — Mapeie suas contribuições naturais: o que você faz que outros acham difícil?",
-    "[85–115 chars] Passo 3 — Identifique o que o mundo pede de você: onde sua presença faz diferença?",
-    "[85–115 chars] Passo 4 — Alinhe decisões: cada escolha pode apontar para ou contra o propósito."
+    "[85–115 chars] Passo 1 - Observe seus picos de energia: quando você perde a noção do tempo?",
+    "[85–115 chars] Passo 2 - Mapeie suas contribuições: o que você faz que outros acham difícil?",
+    "[85–115 chars] Passo 3 - Identifique seu impacto: onde sua presença já faz diferença?",
+    "[85–115 chars] Passo 4 - Alinhe suas decisões: cada escolha aponta para ou contra seu propósito."
   ],
   "alinha_citacao_12": "[60–100 chars] Citação de impacto original para a página 12",
 
   "alinha_perguntas": [
-    "[85–115 chars] Que versão de mim eu traio quando escolho o caminho seguro e conhecido?",
-    "[85–115 chars] O que eu faria se soubesse que não posso falhar — de forma alguma?",
-    "[85–115 chars] Qual é o maior presente que tenho a oferecer ao mundo agora?",
-    "[85–115 chars] O que ainda não vivi porque tenho medo de que seja grande demais para mim?"
+    "[85–115 chars] Que versão de mim eu traio quando escolho o caminho mais seguro?",
+    "[85–115 chars] O que eu faria se soubesse que não posso falhar de forma alguma?",
+    "[85–115 chars] Qual é o maior presente genuíno que tenho a oferecer ao mundo?",
+    "[85–115 chars] O que ainda não vivi porque temo que seja grande demais para mim?"
   ],
-  "alinha_personalizadas": "[400–440 chars] Perguntas e orientações de autoinvestigação específicas para ${nome} baseadas no perfil do quiz.",
+  "alinha_personalizadas": "[400–440 chars] Perguntas de autoinvestigação específicas para você baseadas no seu perfil — voz direta, íntima, provocativa.",
   "alinha_citacao_13":     "[60–100 chars] Citação de impacto original para a página 13",
 
-  "exercicio_intro":    "[280–320 chars] Introdução ao exercício guiado — convite à prática ativa, não apenas à leitura contemplativa.",
-  "exercicio_etapa_1":  "[280–320 chars] Etapa 1 — Seus talentos naturais: o que você faz com facilidade que os outros acham difícil?",
-  "exercicio_etapa_2":  "[280–320 chars] Etapa 2 — O que te energiza: quando você perde a noção do tempo e se sente completamente vivo(a)?",
-  "exercicio_etapa_3":  "[280–320 chars] Etapa 3 — O que o mundo pede: onde sua simples presença já faz diferença para os outros?",
-  "exercicio_reflexao": "[280–320 chars] Convite à integração — instrução para que ${nome} una as três etapas em uma frase de propósito.",
+  "exercicio_intro":    "[280–320 chars] Convite ao exercício — direto para você, não para ser lido mas vivido.",
+  "exercicio_etapa_1":  "[280–320 chars] Etapa 1 — Seus talentos: o que você faz com facilidade que outros acham difícil?",
+  "exercicio_etapa_2":  "[280–320 chars] Etapa 2 — O que te energiza: quando você perde a noção do tempo?",
+  "exercicio_etapa_3":  "[280–320 chars] Etapa 3 — O que o mundo pede de você: onde sua presença já faz diferença?",
+  "exercicio_reflexao": "[280–320 chars] Convite à integração — instrução para você unir as três etapas em uma frase de propósito.",
   "exercicio_citacao":  "[60–100 chars] Citação de impacto original para esta página",
 
-  "fecha_sintese":    "[400–440 chars] Integração de tudo — o fio condutor que une numerologia, astrologia e arquétipos no mapa de ${nome}.",
-  "fecha_convite":    "[400–440 chars] Convite à ação consciente — não à perfeição, mas ao primeiro passo real em direção ao propósito.",
-  "fecha_compromisso": "[280–320 chars] O compromisso com a essência — uma declaração que ${nome} pode fazer consigo mesma agora.",
-  "fecha_frase_final": "[60–95 chars] Frase final oracular e memorável — tom: centrado, poderoso, inevitável.",
-  "fecha_citacao":     "[60–100 chars] Citação de encerramento — a última impressão que ${nome} carrega ao fechar o mapa"
+  "fecha_sintese":     "[400–440 chars] Integração — o fio que une tudo que foi revelado sobre você. Voz direta: 'Você carrega...', 'Seu mapa revela...'",
+  "fecha_convite":     "[400–440 chars] Convite à ação consciente — não à perfeição, mas ao seu primeiro passo real. Fale diretamente com quem lê.",
+  "fecha_compromisso": "[280–320 chars] Compromisso em primeira pessoa — declaração que você pode fazer consigo mesmo agora.",
+  "fecha_frase_final": "[60–95 chars] Frase final oracular — tom: centrado, poderoso, inevitável. Em segunda pessoa.",
+  "fecha_citacao":     "[60–100 chars] Citação de encerramento — a última impressão que você carrega ao fechar o mapa"
 }`;
     }
 
 
+
     /* ═══════════════════════════════════════════════════════════
-       GERAÇÃO
+       GERAÇÃO — 2 chamadas paralelas para garantir JSON completo
+       ───────────────────────────────────────────────────────────
+       Bloco A (págs 01–07): capa, introdução, mapa, numerologia, astrologia
+       Bloco B (págs 08–15): arquétipos, sombra, alinhamento, exercício, fechamento
     ═══════════════════════════════════════════════════════════ */
     let mapaData = null;
+
+    async function callAPI(prompt) {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model:      'claude-sonnet-4-20250514',
+          max_tokens: 4000,
+          messages:   [{ role: 'user', content: prompt }],
+        }),
+      });
+
+      const data = await response.json();
+
+      console.group('%c🪐 Diagnóstico da API', 'color:#C9A84C;font-weight:bold');
+      console.log('Status HTTP:', response.status);
+      console.log('Stop reason:', data.stop_reason);
+      console.log('Tokens usados:', data.usage);
+      if (data.error) console.error('Erro da API:', data.error);
+      const raw = (data.content || []).map(b => b.text || '').join('').replace(/```json|```/g,'').trim();
+      console.log('Chars recebidos:', raw.length, '| Últimos 80:', raw.slice(-80));
+      console.groupEnd();
+
+      if (!raw || data.error) throw new Error(data.error?.message || 'Resposta vazia da API');
+      return JSON.parse(raw);
+    }
 
     async function startGeneration() {
       document.getElementById('quiz-card').style.display     = 'none';
@@ -826,27 +885,21 @@ Gere exatamente este JSON:
       });
 
       try {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model:      'claude-sonnet-4-20250514',
-            max_tokens: 1000,
-            messages:   [{ role: 'user', content: buildPrompt() }],
-          }),
-        });
+        // Duas chamadas paralelas — cada uma com ~2000 tokens de saída
+        const [blocoA, blocoB] = await Promise.all([
+          callAPI(buildPromptA()),
+          callAPI(buildPromptB()),
+        ]);
 
-        const data = await response.json();
-        const raw  = data.content
-          .map(b => b.text || '')
-          .join('')
-          .replace(/```json|```/g, '')
-          .trim();
-
-        mapaData = JSON.parse(raw);
+        // Mescla os dois blocos em um único objeto
+        mapaData = { ...blocoA, ...blocoB };
+        console.log('%c✅ Mapa gerado com sucesso. Campos:', 'color:green', Object.keys(mapaData).length);
 
       } catch (err) {
-        console.warn('API indisponível, usando fallback:', err);
+        console.group('%c❌ Erro na geração', 'color:red;font-weight:bold');
+        console.error(err.name, '—', err.message);
+        console.warn('Usando conteúdo fallback.');
+        console.groupEnd();
         mapaData = buildFallback();
       }
 
@@ -868,20 +921,23 @@ Gere exatamente este JSON:
        (respeita os mesmos limites de caracteres do prompt)
     ═══════════════════════════════════════════════════════════ */
     function buildFallback() {
-      const nome = answers['nome'] || 'Alma';
+      const nomeCompleto = answers['nome'] || 'Alma';
+      const nome = nomeCompleto.trim().split(/\s+/)[0];
       return {
-        nome, data: answers['data_nasc'] ? formatDate(answers['data_nasc']) : '—',
-        hora: answers['hora_nasc'] || '—', cidade: answers['cidade_nasc'] || '—',
+        nome: nomeCompleto,
+        data:   answers['data_nasc'] ? formatDate(answers['data_nasc']) : '—',
+        hora:   answers['hora_nasc']   || '—',
+        cidade: answers['cidade_nasc'] || '—',
 
         capa_subtitulo: 'Um guia para alinhar quem você é com o que você veio viver',
         capa_citacao:   'Você não precisa encontrar seu propósito. Você precisa lembrar.',
 
-        intro_p1: `Propósito não é um cargo que você ocupa nem uma tarefa que você conclui. É a qualidade de presença que você traz para tudo o que faz. ${nome}, você já expressou seu propósito em algum momento — quando perdeu a noção do tempo, quando alguém disse que sua simples presença mudou algo. O problema não é encontrá-lo. É parar de fingir que ele não existe.`,
-        intro_p2: `Propósito é o fio invisível que atravessa todas as suas escolhas quando você está alinhado. Missão é como esse fio se manifesta em ação concreta no mundo. Identidade é quem você precisa ser para que os dois se sustentem. Os três são diferentes e os três precisam conversar — quando um falha, todos sofrem. Este mapa foi feito para mostrar onde essa conversa está acontecendo e onde ela precisa ser retomada.`,
-        intro_p3: `Toda crise existencial é um convite disfarçado. A sensação de que algo está errado não é sinal de falha — é o seu sistema interno dizendo que o acordo entre quem você é e como você vive precisar ser renegociado. A crise é o portal, não o problema.`,
+        intro_p1: `Propósito não é um cargo que você ocupa nem uma tarefa que você conclui. É a qualidade de presença que você traz para tudo o que faz. Você já expressou seu propósito em algum momento — quando perdeu a noção do tempo, quando alguém disse que sua simples presença mudou algo. O problema não é encontrá-lo. É parar de fingir que ele não existe.`,
+        intro_p2: `Propósito é o fio invisível que atravessa todas as suas escolhas quando você está alinhado. Missão é como esse fio se manifesta em ação concreta no mundo. Identidade é quem você precisa ser para que os dois se sustentem. Os três são diferentes e os três precisam conversar — quando um falha, todos sofrem. Este mapa foi feito para mostrar onde essa conversa acontece.`,
+        intro_p3: `Toda crise existencial é um convite disfarçado. A sensação de que algo está errado não é sinal de falha — é o seu sistema interno dizendo que o acordo entre quem você é e como você vive precisa ser renegociado. A crise é o portal, não o problema.`,
         intro_citacao: 'A desorientação é o primeiro passo de toda reorientação profunda.',
 
-        mapa_p1: `O Mapa de Propósito de Vida é uma síntese simbólica de quem você é em sua forma mais essencial. Ele não prevê o futuro — ele ilumina o presente com a luz do que você carrega desde sempre. Para ${nome}, esse mapa é construído a partir de três camadas sobrepostas: o número que governa sua trajetória, os planetas que descrevem sua natureza e os arquétipos que habitam sua psique. Juntos, eles revelam um retrato que nenhum teste de personalidade consegue alcançar.`,
+        mapa_p1: `O Mapa de Propósito de Vida é uma síntese simbólica de quem você é em sua forma mais essencial. Ele não prevê o futuro — ele ilumina o presente com a luz do que você carrega desde sempre. Ele é construído a partir de três camadas sobrepostas: o número que governa sua trajetória, os planetas que descrevem sua natureza e os arquétipos que habitam sua psique.`,
         mapa_p2: `A profundidade desta ferramenta vem de sua capacidade de nomear o que você sempre sentiu mas nunca conseguiu articular. Quando você lê algo neste mapa e pensa "eu sempre soube disso", é porque já era verdade — faltava apenas a linguagem para torná-lo consciente. E o que se torna consciente pode ser escolhido. O que permanece inconsciente continua te escolhendo.`,
         mapa_origens: [
           'Astrologia — o mapa natal como fotografia celeste da sua essência no momento do nascimento',
@@ -890,65 +946,65 @@ Gere exatamente este JSON:
         ],
         mapa_citacao: 'O que você é sempre foi maior do que o que você foi ensinado a ser.',
 
-        num_intro: `A numerologia do propósito parte de uma premissa simples: sua data de nascimento não é um acidente. Ela carrega uma frequência vibracional que descreve os temas centrais da sua jornada. O número de caminho de vida, calculado a partir dessa data, é o mais importante dos números numerológicos — ele aponta a direção, não o destino. É uma bússola, não um GPS.`,
-        num_calculo: `Para calcular: some todos os dígitos da data de nascimento até chegar a um único número (exceto 11 e 22, que são números mestres). Exemplo: 15/08/1990 → 1+5+0+8+1+9+9+0 = 33 → 3+3 = 6. O número de caminho de vida é 6. Para ${nome}, o cálculo a partir de ${answers['data_nasc'] ? formatDate(answers['data_nasc']) : 'sua data'} revela seu número pessoal.`,
-        num_pessoal: `${nome}, seu número de caminho de vida carrega a essência da sua trajetória nesta encarnação. Ele não descreve quem você é em todos os momentos — descreve o tema central que você veio desenvolver e expressar. Quando você age em alinhamento com esse número, tudo flui com mais naturalidade. Quando resiste a ele, surgem os padrões de bloqueio que se repetem ao longo da vida.`,
+        num_intro: `A numerologia do propósito parte de uma premissa simples: sua data de nascimento não é um acidente. Ela carrega uma frequência vibracional que descreve os temas centrais da sua jornada. O número de caminho de vida, calculado a partir dessa data, é o mais importante dos números — ele aponta a direção, não o destino. É uma bússola, não um GPS.`,
+        num_calculo: `Para calcular: some todos os dígitos da sua data de nascimento até chegar a um único número (exceto 11 e 22, que são números mestres). Exemplo: 15/08/1990 resulta em 1+5+0+8+1+9+9+0 = 33, depois 3+3 = 6. O número de caminho de vida é 6.`,
+        num_pessoal: `Seu número de caminho de vida carrega a essência da sua trajetória nesta encarnação. Ele não descreve quem você é em todos os momentos — descreve o tema central que você veio desenvolver e expressar. Quando você age em alinhamento com esse número, tudo flui com mais naturalidade. Quando você resiste a ele, surgem os padrões de bloqueio que se repetem ao longo da vida.`,
         num_citacao_04: 'Cada número é um portal. O seu está esperando que você entre.',
 
         num_significados: [
-          'Número 1 — Pioneiro: liderança, iniciativa, o começo de todos os ciclos possíveis',
-          'Número 2 — Mediador: cooperação, sensibilidade, a força que nasce da escuta profunda',
-          'Número 3 — Criador: expressão, comunicação, a alegria genuína como forma de missão',
-          'Número 4 — Construtor: estrutura, disciplina, alicerces que sustentam gerações futuras',
-          'Número 5 — Explorador: liberdade, mudança, o aprendizado constante pelo movimento',
-          'Número 6 — Guardião: cuidado profundo, responsabilidade, harmonia como vocação de vida',
-          'Número 7 — Sábio: introspecção, investigação, a busca incessante pela verdade essencial',
-          'Número 8 — Realizador: poder consciente, abundância, maestria no plano material e espiritual',
-          'Número 9 — Humanitário: compaixão ampla, conclusão de ciclos, o serviço como legado',
-          'Número 11 — Visionário: intuição elevada, inspiração coletiva, pontes entre mundos distintos',
-          'Número 22 — Arquiteto: visão mestra, construção em grande escala, missão de impacto coletivo',
+          'Numero 1 - Pioneiro: liderança, iniciativa, o começo de todos os ciclos possíveis',
+          'Numero 2 - Mediador: cooperação, sensibilidade, a força que nasce da escuta profunda',
+          'Numero 3 - Criador: expressão, comunicação, a alegria genuína como forma de missão',
+          'Numero 4 - Construtor: estrutura, disciplina, alicerces que sustentam gerações futuras',
+          'Numero 5 - Explorador: liberdade, mudança, o aprendizado constante pelo movimento',
+          'Numero 6 - Guardiao: cuidado profundo, responsabilidade, harmonia como vocação de vida',
+          'Numero 7 - Sabio: introspecção, investigação, a busca incessante pela verdade essencial',
+          'Numero 8 - Realizador: poder consciente, abundância, maestria no plano material e espiritual',
+          'Numero 9 - Humanitário: compaixão ampla, conclusão de ciclos, o serviço como legado',
+          'Numero 11 - Visionário: intuição elevada, inspiração coletiva, pontes entre mundos distintos',
+          'Numero 22 - Arquiteto: visão mestra, construção em grande escala, missão de impacto coletivo',
         ],
         num_citacao_05: 'Seu número não te limita. Ele te lembra o que você veio amplificar.',
 
-        astro_intro: `A astrologia não é sobre previsões. É sobre linguagem. O mapa natal de ${nome} é uma fotografia do céu no instante exato do seu nascimento — e esse céu descreve, com precisão simbólica, as energias que você trouxe para esta vida. O Sol fala da sua essência, a Lua das suas emoções, o Ascendente de como você se apresenta. Juntos, eles formam o núcleo do seu propósito astral.`,
-        astro_sol: `O Sol no mapa de ${nome} descreve sua vocação mais essencial — o que você veio expressar publicamente nesta vida. É a energia que, quando exercida com autenticidade, gera vitalidade, reconhecimento e um senso profundo de estar no lugar certo. Ignorar o Sol é viver na periferia de si mesmo. Honrá-lo é o ato mais direto de alinhamento com o propósito.`,
+        astro_intro: `A astrologia não é sobre previsões. É sobre linguagem. Seu mapa natal é uma fotografia do céu no instante exato do seu nascimento — e esse céu descreve, com precisão simbólica, as energias que você trouxe para esta vida. O Sol fala da sua essência, a Lua das suas emoções, o Ascendente de como você se apresenta. Juntos, eles formam o núcleo do seu propósito astral.`,
+        astro_sol: `Seu Sol descreve sua vocação mais essencial — o que você veio expressar publicamente nesta vida. É a energia que, quando exercida com autenticidade, gera vitalidade, reconhecimento e um senso profundo de estar no lugar certo. Ignorar o Sol é viver na periferia de si mesmo. Honrá-lo é o ato mais direto de alinhamento com o propósito que você carrega.`,
         astro_citacao_06: 'O Sol não ilumina o que está fora. Ele revela o que sempre esteve dentro.',
 
-        astro_lua: `A Lua de ${nome} governa o mundo emocional e os padrões instintivos que orientam as escolhas antes que a razão intervenha. Ela descreve o que você precisa para se sentir seguro, nutrido e conectado a si mesmo. Quando você age a partir da Lua, age a partir da sua verdade mais profunda — não da que aprendeu, mas da que carrega.`,
-        astro_ascendente: `O Ascendente é a porta de entrada da sua alma no mundo. Para ${nome}, ele descreve não apenas como você é percebido pelos outros, mas como você foi projetado para se apresentar de forma a cumprir sua missão. Não é uma máscara — é a forma que sua essência escolheu para se manifestar nesta encarnação específica.`,
+        astro_lua: `Sua Lua governa o mundo emocional e os padrões instintivos que orientam as suas escolhas antes que a razão intervenha. Ela descreve o que você precisa para se sentir seguro, nutrido e conectado a si mesmo. Quando você age a partir dela, age a partir da sua verdade mais profunda — não da que aprendeu, mas da que sempre carregou.`,
+        astro_ascendente: `Seu Ascendente é a porta de entrada da sua alma no mundo. Ele descreve não apenas como você é percebido pelos outros, mas como você foi projetado para se apresentar de forma a cumprir sua missão. Não é uma máscara — é a forma que sua essência escolheu para se manifestar nesta encarnação específica.`,
         astro_citacao_07: 'Você não precisa construir uma persona. Você precisa habitar a sua.',
 
-        arq_conceito: `Carl Jung definiu os arquétipos como padrões universais da psique humana — forças que existem antes de qualquer experiência individual e que moldam comportamentos, desejos e medos de formas que transcendem a cultura e o tempo. Para ${nome}, identificar os arquétipos dominantes é encontrar as forças que já estão operando — consciente ou inconscientemente — em todas as decisões importantes da sua vida.`,
+        arq_conceito: `Carl Jung definiu os arquétipos como padrões universais da psique humana — forças que existem antes de qualquer experiência individual e que moldam seus comportamentos, desejos e medos de formas que transcendem a cultura e o tempo. Identificar os arquétipos dominantes em você é encontrar as forças que já estão operando — consciente ou inconscientemente — em todas as suas decisões.`,
         arq_lista: [
-          'Herói — supera obstáculos, transforma desafios em crescimento e fonte de poder pessoal',
-          'Sábio — busca verdade acima de tudo, orienta através do conhecimento e discernimento',
-          'Curador — transforma dor pessoal em compaixão e oferece cura ao coletivo ao redor',
-          'Criador — manifesta o novo, vive pela expressão, beleza e originalidade em tudo',
-          'Guardião — protege, nutre e sustenta com profundidade o que verdadeiramente importa',
-          'Explorador — busca liberdade com propósito, expande as fronteiras do que é possível',
-          'Soberano — lidera com visão e integridade, cria ordem, estrutura e legado duradouro',
+          'Heroi - supera obstáculos, transforma desafios em crescimento e fonte de poder pessoal',
+          'Sabio - busca verdade acima de tudo, orienta através do conhecimento e discernimento',
+          'Curador - transforma dor pessoal em compaixão e oferece cura ao coletivo ao redor',
+          'Criador - manifesta o novo, vive pela expressão, beleza e originalidade em tudo',
+          'Guardiao - protege, nutre e sustenta com profundidade o que verdadeiramente importa',
+          'Explorador - busca liberdade com propósito, expande as fronteiras do que é possível',
+          'Soberano - lidera com visão e integridade, cria ordem, estrutura e legado duradouro',
         ],
         arq_citacao_08: 'Seus arquétipos não são personagens. São forças esperando ser nomeadas.',
 
-        arq_dominantes: `Com base no perfil do questionário, ${nome} manifesta com mais intensidade os arquétipos que se alinham com a busca por sentido, transformação e expressão autêntica. Esses padrões aparecem não só nos momentos de força — eles aparecem especialmente nos conflitos, nos padrões que se repetem e nas escolhas que você faz quando ninguém está olhando.`,
-        arq_orientacao: `Trabalhar com seus arquétipos dominantes não é amplificá-los indefinidamente — é desenvolvê-los com consciência e integrá-los com os que você tende a suprimir. ${nome}, o arquétipo que você mais rejeita em si mesmo é frequentemente o que carrega o maior potencial de expansão. A jornada começa com o reconhecimento, não com a performance.`,
-        arq_citacao_09: 'Não existe força que você carregue sem ter sido convocado a expressá-la.',
+        arq_dominantes: `Com base no seu perfil, você manifesta com mais intensidade os arquétipos que se alinham com a busca por sentido, transformação e expressão autêntica. Esses padrões aparecem não só nos momentos de força — eles aparecem especialmente nos conflitos, nos padrões que se repetem e nas escolhas que você faz quando ninguém está olhando.`,
+        arq_orientacao: `Trabalhar com seus arquétipos dominantes não é amplificá-los indefinidamente — é desenvolvê-los com consciência e integrá-los com os que você tende a suprimir. O arquétipo que você mais rejeita em si mesmo é frequentemente o que carrega o maior potencial de expansão. A jornada começa com o reconhecimento, não com a performance.`,
+        arq_citacao_09: 'Nao existe forca que voce carregue sem ter sido convocado a expressa-la.',
 
-        sombra_talentos: `${nome}, seus talentos naturais são as capacidades que você exerce com facilidade tão natural que frequentemente deixa de reconhecê-los como dons — porque para você parecem óbvios. Precisão, empatia, visão sistêmica, capacidade de síntese: seja qual for o seu padrão, ele está presente mesmo quando você não percebe. Honrá-lo é o primeiro ato de alinhamento com seu propósito.`,
-        sombra_sabotadores: `Todo talento tem um sabotador correspondente. A mesma sensibilidade que permite uma conexão profunda pode se tornar ansiedade paralisante. A mesma visão ampla que cria estratégias pode gerar procrastinação por perfeccionismo. Para ${nome}, os padrões sabotadores identificados no questionário não são fraquezas de caráter — são talentos que ainda não aprenderam a operar em equilíbrio.`,
+        sombra_talentos: `Seus talentos naturais são as capacidades que você exerce com facilidade tão natural que frequentemente deixa de reconhecê-los como dons — porque para você parecem óbvios. Precisão, empatia, visão sistêmica, capacidade de síntese: seja qual for o seu padrão, ele está presente mesmo quando você não percebe. Honrá-lo é o primeiro ato de alinhamento com seu propósito.`,
+        sombra_sabotadores: `Todo talento tem um sabotador correspondente. A mesma sensibilidade que permite uma conexão profunda pode se tornar ansiedade paralisante. A mesma visão ampla que cria estratégias pode gerar procrastinação por perfeccionismo. Os padrões sabotadores no seu perfil não são fraquezas de caráter — são talentos que ainda não aprenderam a operar em equilíbrio.`,
         sombra_citacao_10: 'O que você rejeita em si mesmo é o que mais pede para ser integrado.',
 
-        sombra_conceito: `A sombra junguiana é tudo aquilo que foi negado, reprimido ou considerado inaceitável ao longo da vida — não apenas os aspectos "negativos", mas também qualidades positivas que foram descartadas por não serem bem-vindas no ambiente em que você cresceu. Para ${nome}, a sombra não é o inimigo. É a parte de você que ainda não foi convidada para a mesa.`,
-        sombra_integracao: `Integrar a sombra não significa liberá-la sem filtro. Significa reconhecê-la, dar-lhe nome e encontrar formas de expressão que sirvam ao propósito em vez de sabotá-lo. O processo começa com a pergunta: "O que eu mais critico nos outros é o que mais nego em mim?" A resposta geralmente aponta diretamente para o que precisa ser integrado.`,
+        sombra_conceito: `A sombra junguiana é tudo aquilo que foi negado, reprimido ou considerado inaceitável ao longo da vida — não apenas os aspectos negativos, mas também qualidades positivas que foram descartadas por não serem bem-vindas no ambiente em que você cresceu. A sua sombra não é o inimigo. É a parte de você que ainda não foi convidada para a mesa.`,
+        sombra_integracao: `Integrar a sombra não significa liberá-la sem filtro. Significa reconhecê-la, dar-lhe nome e encontrar formas de expressão que sirvam ao propósito em vez de sabotá-lo. O processo começa com a pergunta: o que você mais critica nos outros é o que mais nega em si mesmo? A resposta geralmente aponta diretamente para o que precisa ser integrado.`,
         sombra_pratica: `Exercício: Escreva o nome de uma característica que você critica nos outros com mais intensidade. Agora escreva: "Onde eu também faço isso, de forma diferente?" Fique com a resposta. Não julgue. Apenas observe. Esse é o início da integração.`,
         sombra_citacao_11: 'A sombra não desaparece quando ignorada. Ela cresce quando esquecida.',
 
-        alinha_intro: `Alinhamento não é um estado que você atinge e mantém para sempre — é uma prática diária de pequenas escolhas que apontam na direção do propósito. Para ${nome}, isso significa desenvolver o hábito de perguntar, antes de cada decisão relevante: isso me aproxima ou me afasta de quem eu vim ser? A pergunta simples muda tudo quando se torna um reflexo.`,
+        alinha_intro: `Alinhamento não é um estado que você atinge e mantém para sempre — é uma prática diária de pequenas escolhas que apontam na direção do seu propósito. Isso significa desenvolver o hábito de perguntar, antes de cada decisão relevante: isso me aproxima ou me afasta de quem eu vim ser? A pergunta simples muda tudo quando se torna um reflexo.`,
         alinha_passos: [
-          'Passo 1 — Observe seus picos de energia: quando você perde a noção do tempo completamente?',
-          'Passo 2 — Mapeie suas contribuições naturais: o que você faz que outros consideram difícil?',
-          'Passo 3 — Identifique o impacto: onde sua simples presença já faz diferença para alguém?',
-          'Passo 4 — Alinhe suas decisões: cada escolha pode apontar para ou contra o seu propósito.',
+          'Passo 1 - Observe seus picos de energia: quando você perde a noção do tempo completamente?',
+          'Passo 2 - Mapeie suas contribuições naturais: o que você faz que outros consideram difícil?',
+          'Passo 3 - Identifique o impacto: onde sua simples presença já faz diferença para alguém?',
+          'Passo 4 - Alinhe suas decisões: cada escolha pode apontar para ou contra o seu propósito.',
         ],
         alinha_citacao_12: 'Propósito não é o que você faz. É como você faz o que faz.',
 
@@ -958,19 +1014,19 @@ Gere exatamente este JSON:
           'Qual é o maior presente genuíno que tenho a oferecer ao mundo neste momento?',
           'O que ainda não permiti a mim mesmo porque temo que seja grande demais para mim?',
         ],
-        alinha_personalizadas: `${nome}, com base no que você compartilhou no questionário, as perguntas mais urgentes para a sua jornada de alinhamento são aquelas que tocam diretamente no ponto de tensão entre o que você sente como missão e o que tem permitido a si mesmo viver. Onde você está pedindo permissão para ser quem já é? Qual versão sua está esperando para ser autorizada a existir?`,
-        alinha_citacao_13: 'A pergunta certa não resolve o problema. Ela dissolve a ilusão de que ele existe.',
+        alinha_personalizadas: `Com base no que você compartilhou, as perguntas mais urgentes para a sua jornada de alinhamento tocam diretamente no ponto de tensão entre o que você sente como missão e o que tem permitido a si mesmo viver. Onde você está pedindo permissão para ser quem já é? Qual versão sua está esperando para ser autorizada a existir?`,
+        alinha_citacao_13: 'A pergunta certa não resolve o problema. Ela dissolve a ilusao de que ele existe.',
 
         exercicio_intro: `Este exercício não é para ser lido. É para ser vivido. Separe 20 minutos, um caderno e caneta. Desligue as notificações. O que você vai escrever aqui não precisa ser perfeito — precisa ser honesto. Essa é a única condição.`,
         exercicio_etapa_1: `Escreva sem filtro: quais são as três coisas que você faz com tanta facilidade que nem percebe como um talento? O que as pessoas ao seu redor sempre pedem para você ajudar? O que você faria mesmo que ninguém pedisse e ninguém visse?`,
         exercicio_etapa_2: `Lembre de um momento em que perdeu completamente a noção do tempo — não por distração, mas por total presença. O que você estava fazendo? Com quem? Como você se sentia no corpo? Esse estado é um dado sobre o seu propósito.`,
         exercicio_etapa_3: `Pense em três pessoas cujas vidas foram tocadas pela sua presença, mesmo de forma pequena. O que você fez ou disse? O que havia em você naquele momento? O que o mundo pede de você não é um projeto grandioso — é essa qualidade, repetida com intenção.`,
-        exercicio_reflexao: `Agora una as três etapas em uma frase: "Eu, ${nome}, vim para [talento] através de [estado energizante] a fim de [impacto no mundo]." Escreva sem julgar. Reescreva quantas vezes precisar. Essa frase é o primeiro esboço do seu propósito em palavras.`,
+        exercicio_reflexao: `Agora una as três etapas em uma frase: "Eu vim para [talento] através de [estado energizante] a fim de [impacto no mundo]." Escreva sem julgar. Reescreva quantas vezes precisar. Essa frase é o primeiro esboço do seu propósito em palavras.`,
         exercicio_citacao: 'Escrever o propósito não é declará-lo ao mundo. É declará-lo a si mesmo.',
 
-        fecha_sintese: `${nome}, tudo o que este mapa revelou aponta para uma verdade central: você carrega, de forma única e insubstituível, uma combinação de número de caminho de vida, configuração astral e arquétipos que cria um padrão de propósito que só existe em você. Não é arrogância reconhecer isso — é responsabilidade. O mundo não precisa de uma versão sua apagada. Precisa da versão inteira.`,
-        fecha_convite: `O convite não é para a perfeição — é para o primeiro passo real. Não o passo que parece certo, mas o passo que parece verdadeiro. A diferença entre os dois é a diferença entre viver pela aprovação dos outros e viver pelo alinhamento com o que você é. ${nome}, você já sabe qual é o próximo passo. A questão agora é se você vai dar permissão para dá-lo.`,
-        fecha_compromisso: `Eu, ${nome}, me comprometo a honrar quem sou mesmo quando isso for desconfortável. Me comprometo a escolher o verdadeiro acima do conveniente, o alinhado acima do esperado, o meu propósito acima do meu personagem.`,
+        fecha_sintese: `Tudo o que este mapa revelou aponta para uma verdade central: você carrega, de forma única e insubstituível, uma combinação de número de caminho de vida, configuração astral e arquétipos que cria um padrão de propósito que só existe em você. Não é arrogância reconhecer isso — é responsabilidade. O mundo não precisa de uma versão sua apagada. Precisa da versão inteira.`,
+        fecha_convite: `O convite não é para a perfeição — é para o primeiro passo real. Não o passo que parece certo, mas o passo que parece verdadeiro. A diferença entre os dois é a diferença entre viver pela aprovação dos outros e viver pelo alinhamento com o que você é. Você já sabe qual é o próximo passo. A questão agora é se você vai dar permissão para dá-lo.`,
+        fecha_compromisso: `Eu me comprometo a honrar quem sou mesmo quando isso for desconfortável. Me comprometo a escolher o verdadeiro acima do conveniente, o alinhado acima do esperado, o meu propósito acima do meu personagem.`,
         fecha_frase_final: 'Você não veio para caber. Você veio para ser.',
         fecha_citacao:     'O maior ato de coragem é viver como se o seu propósito importasse — porque importa.',
       };
@@ -1013,6 +1069,9 @@ Gere exatamente este JSON:
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const d   = mapaData;
 
+      // Primeiro nome para rodapé — evita nome completo em caixa alta ao longo do doc
+      const nomeExibicao = (d.nome || 'Alma').trim().split(/\s+/)[0];
+
       /* ── helpers de desenho ─────────────────────────── */
 
       function bg() {
@@ -1046,7 +1105,7 @@ Gere exatamente este JSON:
         rule(H - 16, true);
         doc.setFontSize(7); doc.setFont('helvetica', 'normal');
         doc.setTextColor(...C.GOLDD);
-        doc.text(`${d.nome}  ·  Mapa de Propósito de Vida  ·  ${pg} / 15`, W / 2, H - 11, { align: 'center' });
+        doc.text(`${nomeExibicao}  -  Mapa de Proposito de Vida  -  ${pg} / 15`, W / 2, H - 11, { align: 'center' });
       }
 
       // texto alinhado à esquerda com quebra — retorna novo y
@@ -1126,21 +1185,21 @@ Gere exatamente este JSON:
       mandala(W / 2, 128, 60);
 
       ctxt('✦  ✦  ✦', 26, 12, C.GOLD);
-      ctxt('MAPA DE PROPÓSITO DE VIDA', 40, 8.5, C.GOLDD);
+      ctxt('SEU MAPA DE PROPOSITO DE VIDA', 40, 8.5, C.GOLDD);
       rule(46);
-      ctxt(d.nome, 66, 27, C.WHITE, 'bold');
+      ctxt(nomeExibicao, 66, 27, C.WHITE, 'bold');
       ctxt(d.capa_subtitulo, 77, 10.5, C.GOLD, 'italic', TW - 20);
       rule(88);
 
       // dados
       doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      [[W/2-52,'DATA'],[W/2,'HORÁRIO'],[W/2+52,'LOCAL']].forEach(([x, l]) =>
+      [[ W/2-52, 'DATA' ],[ W/2, 'HORARIO' ],[ W/2+52, 'LOCAL' ]].forEach(([x, l]) =>
         doc.text(l, x, 98, { align: 'center' })
       );
       doc.setFontSize(11); doc.setTextColor(...C.CREAM);
-      doc.text(d.data || '—', W/2-52, 106, { align: 'center' });
-      doc.text(d.hora || '—', W/2,     106, { align: 'center' });
-      const cLines = doc.splitTextToSize(d.cidade || '—', 46);
+      doc.text(d.data || '-', W/2-52, 106, { align: 'center' });
+      doc.text(d.hora || '-', W/2,     106, { align: 'center' });
+      const cLines = doc.splitTextToSize(d.cidade || '-', 46);
       doc.text(cLines, W/2+52, 106, { align: 'center' });
 
       citation(d.capa_citacao);
@@ -1150,7 +1209,7 @@ Gere exatamente este JSON:
          PÁG 02 — INTRODUÇÃO: O DESPERTAR DA PERGUNTA
       ════════════════════════════════════════════════ */
       np();
-      let y = sectionHeader('✦', '02', 'Introdução', 'O Despertar da Pergunta', 18);
+      let y = sectionHeader('✦', '02', 'Sua Introducao', 'O Despertar da Sua Pergunta', 18);
 
       y = txt(d.intro_p1, M, y, 11, C.CREAM, 'normal', TW);
       y += 7; rule(y, true); y += 8;
@@ -1165,7 +1224,7 @@ Gere exatamente este JSON:
          PÁG 03 — O QUE É O MAPA DE PROPÓSITO DE VIDA
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('🧭', '03', 'O Mapa de Propósito de Vida', 'Conceito, Origem e Profundidade', 18);
+      y = sectionHeader('*', '03', 'Seu Mapa de Proposito de Vida', 'O que ele e e o que revela sobre voce', 18);
 
       y = txt(d.mapa_p1, M, y, 11, C.CREAM, 'normal', TW);
       y += 7; rule(y, true); y += 8;
@@ -1174,7 +1233,7 @@ Gere exatamente este JSON:
 
       // origens em caixas
       doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('ORIGENS DESTA FERRAMENTA', M, y); y += 5;
+      doc.text('AS ORIGENS DO SEU MAPA', M, y); y += 5;
       const boxW = (TW - 6) / 3;
       (d.mapa_origens || []).forEach((orig, i) => {
         const bx = M + i * (boxW + 3);
@@ -1192,7 +1251,7 @@ Gere exatamente este JSON:
          PÁG 04 — NUMEROLOGIA I: INTRODUÇÃO + CÁLCULO
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('🔢', '04', 'Numerologia do Propósito', 'O Número que Governa sua Trajetória', 18);
+      y = sectionHeader('#', '04', 'Sua Numerologia do Proposito', 'Seu Numero de Destino e o que ele Revela', 18);
 
       y = txt(d.num_intro, M, y, 11, C.CREAM, 'normal', TW);
       y += 7; rule(y, true); y += 8;
@@ -1201,7 +1260,7 @@ Gere exatamente este JSON:
       doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.2);
       doc.roundedRect(M, y, TW, 30, 1.5, 1.5, 'FD');
       doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('COMO CALCULAR', M + 4, y + 7);
+      doc.text('SEU CALCULO NUMEROLOGICO', M + 4, y + 7);
       doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
       const calcLines = doc.splitTextToSize(d.num_calculo, TW - 8);
       doc.text(calcLines, M + 4, y + 14);
@@ -1217,7 +1276,7 @@ Gere exatamente este JSON:
          PÁG 05 — NUMEROLOGIA II: SIGNIFICADOS 1–22
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('🔢', '05', 'Numerologia do Propósito', 'Significado dos Números de Caminho de Vida', 18);
+      y = sectionHeader('#', '05', 'Sua Numerologia do Proposito', 'O Significado do Seu Numero de Destino', 18);
 
       const col1 = d.num_significados.slice(0, 6);
       const col2 = d.num_significados.slice(6);
@@ -1234,55 +1293,59 @@ Gere exatamente este JSON:
          PÁG 06 — ASTROLOGIA I: INTRO + SOL
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('🌞', '06', 'Astrologia — O Código Celeste', 'Sol, Lua, Ascendente e Vocação', 18);
+      y = sectionHeader('o', '06', 'Sua Astrologia - Seu Codigo Celeste', 'Seu Sol, Sua Lua, Seu Ascendente', 18);
 
       y = txt(d.astro_intro, M, y, 11, C.CREAM, 'normal', TW);
       y += 7; rule(y, true); y += 8;
 
-      // box Sol
+      // box Sol — altura calculada com margem extra para não cortar
       doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.2);
-      const solLines = doc.splitTextToSize(d.astro_sol, TW - 20);
-      const solH = solLines.length * 4.8 + 14;
+      const solLines = doc.splitTextToSize(d.astro_sol, TW - 22);
+      const solH = solLines.length * 5.2 + 18;
       doc.roundedRect(M, y, TW, solH, 1.5, 1.5, 'FD');
-      doc.setFontSize(16); doc.setTextColor(...C.GOLD); doc.text('☀', M + 5, y + 10);
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
+      doc.text('SEU SOL', M + 5, y + 8);
       doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('SOL — SUA ESSÊNCIA', M + 14, y + 7);
+      doc.text('SUA ESSENCIA E VOCACAO', M + 5, y + 13);
       doc.setFontSize(10.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
-      doc.text(solLines, M + 14, y + 13);
+      doc.text(solLines, M + 5, y + 19);
 
       citation(d.astro_citacao_06);
       footer('06');
 
       /* ════════════════════════════════════════════════
          PÁG 07 — ASTROLOGIA II: LUA + ASCENDENTE
+         (inclui cabeçalho de seção)
       ════════════════════════════════════════════════ */
       np();
-      y = 28;
+      y = sectionHeader('o', '07', 'Sua Astrologia - Seu Codigo Celeste', 'Sua Lua, Seu Ascendente e Sua Expressao', 18);
 
       // box Lua
       doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLDD); doc.setLineWidth(0.15);
-      const luaLines = doc.splitTextToSize(d.astro_lua, TW - 20);
-      const luaH = luaLines.length * 4.8 + 14;
+      const luaLines = doc.splitTextToSize(d.astro_lua, TW - 22);
+      const luaH = luaLines.length * 5.2 + 18;
       doc.roundedRect(M, y, TW, luaH, 1.5, 1.5, 'FD');
-      doc.setFontSize(16); doc.setTextColor(...C.GOLD); doc.text('☽', M + 5, y + 10);
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
+      doc.text('SUA LUA', M + 5, y + 8);
       doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('LUA — SUAS EMOÇÕES E INTUIÇÃO', M + 14, y + 7);
+      doc.text('SUAS EMOCOES E INTUICAO', M + 5, y + 13);
       doc.setFontSize(10.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
-      doc.text(luaLines, M + 14, y + 13);
+      doc.text(luaLines, M + 5, y + 19);
       y += luaH + 10;
 
       rule(y, true); y += 10;
 
       // box Ascendente
       doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLDD); doc.setLineWidth(0.15);
-      const ascLines = doc.splitTextToSize(d.astro_ascendente, TW - 20);
-      const ascH = ascLines.length * 4.8 + 14;
+      const ascLines = doc.splitTextToSize(d.astro_ascendente, TW - 22);
+      const ascH = ascLines.length * 5.2 + 18;
       doc.roundedRect(M, y, TW, ascH, 1.5, 1.5, 'FD');
-      doc.setFontSize(16); doc.setTextColor(...C.GOLD); doc.text('↑', M + 5, y + 10);
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
+      doc.text('SEU ASCENDENTE', M + 5, y + 8);
       doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('ASCENDENTE — SUA EXPRESSÃO NO MUNDO', M + 14, y + 7);
+      doc.text('SUA EXPRESSAO NO MUNDO', M + 5, y + 13);
       doc.setFontSize(10.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
-      doc.text(ascLines, M + 14, y + 13);
+      doc.text(ascLines, M + 5, y + 19);
 
       citation(d.astro_citacao_07);
       footer('07');
@@ -1291,13 +1354,13 @@ Gere exatamente este JSON:
          PÁG 08 — ARQUÉTIPOS I: CONCEITO + LISTA
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('🜂', '08', 'Arquétipos — As Forças Internas', 'Carl Jung e os Padrões Universais da Psique', 18);
+      y = sectionHeader('>', '08', 'Seus Arquetipos', 'As Forcas Internas que Habitam Voce', 18);
 
       y = txt(d.arq_conceito, M, y, 11, C.CREAM, 'normal', TW);
       y += 8; rule(y, true); y += 8;
 
       doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('OS 7 ARQUÉTIPOS PRINCIPAIS', M, y); y += 6;
+      doc.text('OS ARQUETIPOS E SEUS SIGNIFICADOS', M, y); y += 6;
       y = drawList(d.arq_lista || [], M, y, TW);
 
       citation(d.arq_citacao_08);
@@ -1307,7 +1370,7 @@ Gere exatamente este JSON:
          PÁG 09 — ARQUÉTIPOS II: DOMINANTES + ORIENTAÇÃO
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('🜂', '09', 'Arquétipos — As Forças Internas', 'Seus Arquétipos Dominantes e Como Trabalhá-los', 18);
+      y = sectionHeader('>', '09', 'Seus Arquetipos', 'Seus Arquetipos Dominantes e Como Trabalhá-los', 18);
 
       y = txt(d.arq_dominantes, M, y, 11, C.CREAM, 'normal', TW);
       y += 7; rule(y, true); y += 8;
@@ -1320,16 +1383,15 @@ Gere exatamente este JSON:
          PÁG 10 — LUZ E SOMBRA I: TALENTOS + SABOTADORES
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('⚖️', '10', 'Luz e Sombra no Propósito', 'Talentos, Sabotadores e a Arte da Integração', 18);
+      y = sectionHeader('=', '10', 'Sua Luz e Sua Sombra', 'Seus Talentos, Seus Padroes e Sua Integracao', 18);
 
-      // coluna luz
       doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('✦  SEUS TALENTOS', M, y); y += 6;
+      doc.text('+ SEUS TALENTOS', M, y); y += 6;
       y = txt(d.sombra_talentos, M, y, 11, C.CREAM, 'normal', TW);
       y += 7; rule(y, true); y += 8;
 
       doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('⚠  SEUS PADRÕES SABOTADORES', M, y); y += 6;
+      doc.text('! SEUS PADROES SABOTADORES', M, y); y += 6;
       txt(d.sombra_sabotadores, M, y, 11, C.CREAMD, 'italic', TW);
 
       citation(d.sombra_citacao_10);
@@ -1339,7 +1401,7 @@ Gere exatamente este JSON:
          PÁG 11 — LUZ E SOMBRA II: CONCEITO + INTEGRAÇÃO
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('⚖️', '11', 'Luz e Sombra no Propósito', 'A Sombra Junguiana e o Caminho da Integração', 18);
+      y = sectionHeader('=', '11', 'Sua Luz e Sua Sombra', 'Sua Sombra e o Caminho da Sua Integracao', 18);
 
       y = txt(d.sombra_conceito, M, y, 11, C.CREAM, 'normal', TW);
       y += 7; rule(y, true); y += 8;
@@ -1351,7 +1413,7 @@ Gere exatamente este JSON:
       const pracLines = doc.splitTextToSize(d.sombra_pratica, TW - 8);
       doc.roundedRect(M, y, TW, pracLines.length * 4.8 + 12, 1.5, 1.5, 'FD');
       doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('EXERCÍCIO RÁPIDO', M + 4, y + 7);
+      doc.text('SEU EXERCICIO DE INTEGRACAO', M + 4, y + 7);
       doc.setFontSize(10.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.CREAM);
       doc.text(pracLines, M + 4, y + 13);
 
@@ -1362,13 +1424,13 @@ Gere exatamente este JSON:
          PÁG 12 — ALINHAMENTO I: INTRO + PASSOS
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('🌱', '12', 'Alinhamento Prático', 'Como Aplicar o Propósito no Dia a Dia', 18);
+      y = sectionHeader('+', '12', 'Seu Alinhamento Pratico', 'Como Voce Aplica Seu Proposito no Dia a Dia', 18);
 
       y = txt(d.alinha_intro, M, y, 11, C.CREAM, 'normal', TW);
       y += 8; rule(y, true); y += 8;
 
       doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('4 PASSOS PARA O ALINHAMENTO', M, y); y += 7;
+      doc.text('SEUS 4 PASSOS PARA O ALINHAMENTO', M, y); y += 7;
 
       (d.alinha_passos || []).forEach((passo, i) => {
         doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLDD); doc.setLineWidth(0.15);
@@ -1389,16 +1451,16 @@ Gere exatamente este JSON:
          PÁG 13 — ALINHAMENTO II: PERGUNTAS + PERSONALIZADAS
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('🌱', '13', 'Alinhamento Prático', 'Perguntas de Autoinvestigação', 18);
+      y = sectionHeader('+', '13', 'Seu Alinhamento Pratico', 'Suas Perguntas de Autoinvestigacao', 18);
 
       doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('PERGUNTAS UNIVERSAIS', M, y); y += 7;
+      doc.text('SUAS PERGUNTAS ESSENCIAIS', M, y); y += 7;
       y = drawList(d.alinha_perguntas || [], M, y, TW);
 
       y += 5; rule(y, true); y += 8;
 
       doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text(`PERGUNTAS PARA ${d.nome.toUpperCase()}`, M, y); y += 7;
+      doc.text('SUAS PERGUNTAS PERSONALIZADAS', M, y); y += 7;
       txt(d.alinha_personalizadas, M, y, 11, C.CREAMD, 'italic', TW);
 
       citation(d.alinha_citacao_13);
@@ -1408,15 +1470,15 @@ Gere exatamente este JSON:
          PÁG 14 — EXERCÍCIO GUIADO: CONSTRUINDO SEU MAPA
       ════════════════════════════════════════════════ */
       np();
-      y = sectionHeader('🔮', '14', 'Exercício Guiado', 'Construindo Seu Mapa de Propósito', 18);
+      y = sectionHeader('*', '14', 'Seu Exercicio Guiado', 'Construindo Seu Mapa de Proposito', 18);
 
       y = txt(d.exercicio_intro, M, y, 11, C.CREAMD, 'italic', TW);
       y += 8;
 
       const etapas = [
         { num: '01', label: 'SEUS TALENTOS NATURAIS', text: d.exercicio_etapa_1 },
-        { num: '02', label: 'O QUE TE ENERGIZA',       text: d.exercicio_etapa_2 },
-        { num: '03', label: 'O QUE O MUNDO PEDE',       text: d.exercicio_etapa_3 },
+        { num: '02', label: 'O QUE TE ENERGIZA',      text: d.exercicio_etapa_2 },
+        { num: '03', label: 'O QUE O MUNDO PEDE',     text: d.exercicio_etapa_3 },
       ];
 
       etapas.forEach(et => {
@@ -1451,12 +1513,12 @@ Gere exatamente este JSON:
 
       ctxt('✦', 28, 22, C.GOLD);
       rule(36);
-      ctxt('FECHAMENTO', 47, 8.5, C.GOLDD);
+      ctxt('SEU FECHAMENTO', 47, 8.5, C.GOLDD);
 
       y = 62;
-      y = txt(d.fecha_sintese,  M, y, 11,   C.CREAM,  'normal', TW); y += 7;
+      y = txt(d.fecha_sintese,  M, y, 11, C.CREAM,  'normal', TW); y += 7;
       rule(y, true); y += 8;
-      y = txt(d.fecha_convite,  M, y, 11,   C.CREAM,  'normal', TW); y += 8;
+      y = txt(d.fecha_convite,  M, y, 11, C.CREAM,  'normal', TW); y += 8;
 
       // box compromisso
       const compLines = doc.splitTextToSize(d.fecha_compromisso, TW - 8);
@@ -1471,15 +1533,15 @@ Gere exatamente este JSON:
       y += 14;
       ctxt('✦  ✦  ✦', y, 10, C.GOLD);
       y += 12;
-      ctxt(d.nome, y, 11, C.WHITE, 'bold');
+      ctxt(nomeExibicao, y, 11, C.WHITE, 'bold');
       y += 7;
-      ctxt(`${d.data || '—'}  ·  ${d.hora || '—'}  ·  ${d.cidade || '—'}`, y, 8.5, C.GOLDD);
+      ctxt(`${d.data || '-'}  |  ${d.hora || '-'}  |  ${d.cidade || '-'}`, y, 8.5, C.GOLDD);
 
       citation(d.fecha_citacao);
       footer('15');
 
       /* ── salva ── */
-      const slug = (d.nome || 'mapa').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+      const slug = nomeExibicao.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
       doc.save(`Mapa_Proposito_de_Vida_${slug}.pdf`);
     }
 
