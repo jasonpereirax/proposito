@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa de Propósito Kármico — Quiz</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --navy: #080D1F;
+    --navy-mid: #0D1530;
+    --navy-light: #141D3A;
+    --gold: #C9A84C;
+    --gold-light: #E8C97A;
+    --gold-dim: #8A6E2E;
+    --cream: #F0E6D3;
+    --cream-dim: #B8A990;
+    --white: #FFFFFF;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--navy);
+    color: var(--cream);
+    font-family: 'Cormorant Garamond', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* STARFIELD */
+  #stars-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* HEADER */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .header-symbol {
+    font-size: 32px;
+    margin-bottom: 16px;
+    display: block;
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+  }
+
+  .header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(22px, 4vw, 32px);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    color: var(--white);
+    line-height: 1.3;
+  }
+
+  .header h1 em {
+    color: var(--gold);
+    font-style: normal;
+  }
+
+  .header p {
+    margin-top: 12px;
+    font-size: 17px;
+    color: var(--cream-dim);
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  /* PROGRESS */
+  .progress-wrap {
+    margin-bottom: 40px;
+  }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.1em;
+    color: var(--gold-dim);
+    margin-bottom: 8px;
+  }
+
+  .progress-bar {
+    height: 2px;
+    background: rgba(201,168,76,0.15);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold-dim), var(--gold-light));
+    border-radius: 2px;
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 0 8px rgba(201,168,76,0.4);
+  }
+
+  /* CARD */
+  .card {
+    background: linear-gradient(135deg, rgba(20,29,58,0.9), rgba(13,21,48,0.95));
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 2px;
+    padding: 40px 36px;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.5), inset 0 1px 0 rgba(201,168,76,0.1);
+    animation: fadeUp 0.5s ease forwards;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .step-num {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--gold-dim);
+    margin-bottom: 20px;
+  }
+
+  .question {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(17px, 3vw, 22px);
+    font-weight: 400;
+    color: var(--white);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  .question-sub {
+    font-size: 15px;
+    color: var(--cream-dim);
+    font-style: italic;
+    margin-bottom: 28px;
+  }
+
+  /* OPTIONS */
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .option {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 18px;
+    border: 1px solid rgba(201,168,76,0.15);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .option:hover {
+    border-color: rgba(201,168,76,0.4);
+    background: rgba(201,168,76,0.05);
+    transform: translateX(3px);
+  }
+
+  .option.selected {
+    border-color: var(--gold);
+    background: rgba(201,168,76,0.1);
+    box-shadow: 0 0 16px rgba(201,168,76,0.15);
+  }
+
+  .option-dot {
+    width: 18px;
+    height: 18px;
+    border: 1px solid rgba(201,168,76,0.4);
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s;
+  }
+
+  .option.selected .option-dot {
+    border-color: var(--gold);
+    background: var(--gold);
+  }
+
+  .option.selected .option-dot::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--navy);
+    border-radius: 50%;
+  }
+
+  .option-text {
+    font-size: 16px;
+    color: var(--cream);
+    line-height: 1.5;
+    font-weight: 300;
+  }
+
+  /* INPUT FIELDS */
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-label {
+    display: block;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--gold-dim);
+    margin-bottom: 8px;
+  }
+
+  .form-input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 2px;
+    padding: 12px 16px;
+    color: var(--cream);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-input:focus {
+    border-color: rgba(201,168,76,0.5);
+    box-shadow: 0 0 12px rgba(201,168,76,0.1);
+  }
+
+  .form-input::placeholder {
+    color: rgba(184,169,144,0.4);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* NAVIGATION */
+  .nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 32px;
+    padding-top: 28px;
+    border-top: 1px solid rgba(201,168,76,0.1);
+  }
+
+  .btn {
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    padding: 13px 28px;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-transform: uppercase;
+  }
+
+  .btn-prev {
+    background: transparent;
+    color: var(--cream-dim);
+    border: 1px solid rgba(201,168,76,0.15);
+  }
+
+  .btn-prev:hover { border-color: rgba(201,168,76,0.3); color: var(--cream); }
+
+  .btn-next {
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+    color: var(--navy);
+    font-weight: 600;
+    box-shadow: 0 4px 20px rgba(201,168,76,0.25);
+  }
+
+  .btn-next:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px rgba(201,168,76,0.35);
+  }
+
+  .btn-next:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* LOADING */
+  #loading-screen {
+    display: none;
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  .loading-mandala {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 32px;
+    animation: rotateMandala 8s linear infinite;
+  }
+
+  @keyframes rotateMandala {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-title {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    color: var(--white);
+    margin-bottom: 10px;
+  }
+
+  .loading-sub {
+    font-size: 15px;
+    color: var(--cream-dim);
+    font-style: italic;
+  }
+
+  .loading-steps {
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: left;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .loading-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--cream-dim);
+    opacity: 0.3;
+    transition: opacity 0.5s ease;
+  }
+
+  .loading-step.active {
+    opacity: 1;
+    color: var(--gold);
+  }
+
+  .loading-step.done {
+    opacity: 0.7;
+    color: var(--cream);
+  }
+
+  .step-icon { font-size: 16px; }
+
+  /* RESULT */
+  #result-screen {
+    display: none;
+    text-align: center;
+  }
+
+  .result-badge {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, rgba(201,168,76,0.15), rgba(201,168,76,0.05));
+    border: 1px solid rgba(201,168,76,0.4);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin: 0 auto 24px;
+    box-shadow: 0 0 30px rgba(201,168,76,0.2);
+  }
+
+  .result-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+
+  .result-name {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(24px, 4vw, 32px);
+    color: var(--white);
+    margin-bottom: 16px;
+  }
+
+  .result-text {
+    font-size: 17px;
+    color: var(--cream-dim);
+    font-style: italic;
+    line-height: 1.7;
+    margin-bottom: 32px;
+  }
+
+  .btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+    color: var(--navy);
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    padding: 16px 36px;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 4px 24px rgba(201,168,76,0.3);
+    transition: all 0.25s;
+    text-transform: uppercase;
+  }
+
+  .btn-download:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(201,168,76,0.4);
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 28px 0;
+    color: var(--gold-dim);
+    font-size: 18px;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(201,168,76,0.2), transparent);
+  }
+
+  .error-msg {
+    color: #E57373;
+    font-size: 14px;
+    margin-top: 8px;
+    font-style: italic;
+    display: none;
+  }
+
+  @media (max-width: 520px) {
+    .card { padding: 28px 20px; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+
+<div class="container">
+  <div class="header">
+    <span class="header-symbol">✦</span>
+    <h1>Mapa de <em>Propósito</em> Kármico</h1>
+    <p>Responda com sinceridade. Os astros já sabem quem você é.</p>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-label">
+      <span id="progress-text">PASSO 1 DE 8</span>
+      <span id="progress-pct">12%</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:12%"></div></div>
+  </div>
+
+  <!-- QUIZ CARD -->
+  <div class="card" id="quiz-card">
+    <div id="step-num" class="step-num">QUESTÃO 01</div>
+    <div id="question" class="question"></div>
+    <div id="question-sub" class="question-sub"></div>
+    <div id="options-container"></div>
+    <div id="fields-container"></div>
+    <div class="error-msg" id="error-msg">Por favor, selecione uma opção ou preencha os campos antes de continuar.</div>
+    <div class="nav">
+      <button class="btn btn-prev" id="btn-prev" onclick="prevStep()">← Voltar</button>
+      <button class="btn btn-next" id="btn-next" onclick="nextStep()">Continuar →</button>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="card" id="loading-screen">
+    <div id="loading-screen-inner">
+      <svg class="loading-mandala" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(201,168,76,0.1)" stroke-width="1"/>
+        <circle cx="100" cy="100" r="70" fill="none" stroke="rgba(201,168,76,0.15)" stroke-width="1"/>
+        <circle cx="100" cy="100" r="50" fill="none" stroke="rgba(201,168,76,0.2)" stroke-width="1"/>
+        <g stroke="rgba(201,168,76,0.4)" stroke-width="1" fill="none">
+          <line x1="100" y1="10" x2="100" y2="190"/>
+          <line x1="10" y1="100" x2="190" y2="100"/>
+          <line x1="29" y1="29" x2="171" y2="171"/>
+          <line x1="171" y1="29" x2="29" y2="171"/>
+          <line x1="17" y1="64" x2="183" y2="136"/>
+          <line x1="183" y1="64" x2="17" y2="136"/>
+          <line x1="64" y1="17" x2="136" y2="183"/>
+          <line x1="136" y1="17" x2="64" y2="183"/>
+        </g>
+        <circle cx="100" cy="100" r="8" fill="rgba(201,168,76,0.6)"/>
+        <circle cx="100" cy="10" r="4" fill="rgba(201,168,76,0.5)"/>
+        <circle cx="100" cy="190" r="4" fill="rgba(201,168,76,0.5)"/>
+        <circle cx="10" cy="100" r="4" fill="rgba(201,168,76,0.5)"/>
+        <circle cx="190" cy="100" r="4" fill="rgba(201,168,76,0.5)"/>
+      </svg>
+      <div class="loading-title">Consultando os Astros…</div>
+      <div class="loading-sub">Seu mapa está sendo traçado nos registros cósmicos</div>
+      <div class="loading-steps">
+        <div class="loading-step" id="ls1"><span class="step-icon">⊙</span> Calculando posições planetárias</div>
+        <div class="loading-step" id="ls2"><span class="step-icon">☽</span> Identificando Nodo Norte e lições kármicas</div>
+        <div class="loading-step" id="ls3"><span class="step-icon">✦</span> Interpretando missão de vida</div>
+        <div class="loading-step" id="ls4"><span class="step-icon">♇</span> Mapeando desafios e dons</div>
+        <div class="loading-step" id="ls5"><span class="step-icon">◈</span> Gerando seu relatório personalizado</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="card" id="result-screen">
+    <div class="result-badge">✦</div>
+    <div class="result-title">SEU MAPA ESTÁ PRONTO</div>
+    <div class="result-name" id="result-name"></div>
+    <div class="divider">✦</div>
+    <div class="result-text" id="result-preview"></div>
+    <button class="btn-download" onclick="downloadPDF()">
+      ⬇ Baixar Meu Mapa em PDF
+    </button>
+  </div>
+</div>
+
+<script>
+// ─── STARFIELD ────────────────────────────────────────────────
+const canvas = document.getElementById('stars-canvas');
+const ctx = canvas.getContext('2d');
+let stars = [];
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 180; i++) {
+    stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.2,
+      a: Math.random(),
+      speed: 0.003 + Math.random() * 0.005
+    });
+  }
+}
+function animateStars() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  stars.forEach(s => {
+    s.a += s.speed;
+    const alpha = (Math.sin(s.a) + 1) / 2 * 0.7 + 0.1;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(201,168,76,${alpha})`;
+    ctx.fill();
+  });
+  requestAnimationFrame(animateStars);
+}
+resizeCanvas(); initStars(); animateStars();
+window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
+
+// ─── QUIZ DATA ────────────────────────────────────────────────
+const steps = [
+  {
+    type: 'options',
+    num: '01',
+    question: 'Como você se sente em relação ao seu caminho de vida hoje?',
+    sub: 'Escolha a resposta que mais ressoa com você neste momento.',
+    options: [
+      'Sinto que tenho um propósito claro, mas algo me impede de vivê-lo plenamente',
+      'Estou buscando ativamente meu propósito, mas ainda não encontrei',
+      'Repito padrões que não consigo mudar e isso me limita',
+      'Estou em transição e preciso de direção para o próximo passo'
+    ]
+  },
+  {
+    type: 'options',
+    num: '02',
+    question: 'Qual área da sua vida pede mais atenção e transformação?',
+    sub: 'Onde você sente o maior bloqueio ou potencial inexplorado?',
+    options: [
+      'Relacionamentos e vínculos afetivos',
+      'Carreira, vocação e realização profissional',
+      'Saúde, corpo e bem-estar',
+      'Propósito espiritual e evolução da consciência'
+    ]
+  },
+  {
+    type: 'options',
+    num: '03',
+    question: 'Como você lida com os padrões que se repetem na sua vida?',
+    sub: 'Seja honesto — o mapa não julga, apenas revela.',
+    options: [
+      'Percebo os padrões mas não sei como quebrá-los',
+      'Às vezes entendo de onde vêm, mas ainda me pego repetindo',
+      'Sinto que são heranças familiares ou de vidas passadas',
+      'Já trabalhei muito isso, mas algumas resistências persistem'
+    ]
+  },
+  {
+    type: 'options',
+    num: '04',
+    question: 'O que você espera descobrir com o seu Mapa de Propósito?',
+    sub: 'Sua intenção orienta como a leitura será direcionada.',
+    options: [
+      'Minha missão de vida e o que vim fazer nesta encarnação',
+      'Meus talentos e dons que ainda não expressei plenamente',
+      'As raízes kármicas dos meus bloqueios e como superá-los',
+      'Uma visão integrada de tudo: missão, dons e desafios'
+    ]
+  },
+  {
+    type: 'options',
+    num: '05',
+    question: 'Como você se relaciona com a espiritualidade e o autoconhecimento?',
+    sub: 'Não há resposta certa — apenas sua verdade.',
+    options: [
+      'É parte central da minha vida e do meu desenvolvimento',
+      'Tenho interesse crescente e quero aprofundar',
+      'Sou cético(a) mas aberto(a) — os resultados me convencem',
+      'Busco integrar espiritualidade com praticidade no dia a dia'
+    ]
+  },
+  {
+    type: 'fields',
+    num: '06',
+    question: 'Agora, precisamos dos dados do seu nascimento',
+    sub: 'Estes dados são a base de todo o cálculo astral. Quanto mais preciso, mais profunda a leitura.',
+    fields: [
+      { id: 'nome', label: 'SEU NOME COMPLETO', type: 'text', placeholder: 'Como você se chama' },
+      { id: 'data_nasc', label: 'DATA DE NASCIMENTO', type: 'date', placeholder: 'DD/MM/AAAA' },
+    ]
+  },
+  {
+    type: 'fields',
+    num: '07',
+    question: 'Horário e local de nascimento',
+    sub: 'O Ascendente e as Casas só são calculados com horário preciso. Se não souber, use aproximadamente.',
+    fields: [
+      { id: 'hora_nasc', label: 'HORÁRIO DE NASCIMENTO', type: 'time', placeholder: 'HH:MM' },
+      { id: 'cidade_nasc', label: 'CIDADE DE NASCIMENTO', type: 'text', placeholder: 'Ex: São Paulo, SP, Brasil' }
+    ]
+  },
+  {
+    type: 'fields',
+    num: '08',
+    question: 'Última etapa — quase lá',
+    sub: 'Seu mapa será gerado e enviado para este e-mail.',
+    fields: [
+      { id: 'email', label: 'SEU E-MAIL', type: 'email', placeholder: 'para@receber.o.mapa' },
+      { id: 'intencao', label: 'UMA INTENÇÃO PARA ESTA LEITURA (opcional)', type: 'text', placeholder: 'O que você pede que os astros iluminem?' }
+    ]
+  }
+];
+
+let current = 0;
+const answers = {};
+
+function renderStep() {
+  const s = steps[current];
+  document.getElementById('step-num').textContent = `QUESTÃO ${s.num}`;
+  document.getElementById('question').textContent = s.question;
+  document.getElementById('question-sub').textContent = s.sub;
+  document.getElementById('error-msg').style.display = 'none';
+  document.getElementById('btn-prev').style.visibility = current === 0 ? 'hidden' : 'visible';
+
+  const isLast = current === steps.length - 1;
+  document.getElementById('btn-next').textContent = isLast ? 'Gerar Meu Mapa ✦' : 'Continuar →';
+
+  const total = steps.length;
+  const pct = Math.round(((current + 1) / total) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = `PASSO ${current + 1} DE ${total}`;
+  document.getElementById('progress-pct').textContent = pct + '%';
+
+  const optContainer = document.getElementById('options-container');
+  const fldContainer = document.getElementById('fields-container');
+  optContainer.innerHTML = '';
+  fldContainer.innerHTML = '';
+
+  if (s.type === 'options') {
+    optContainer.innerHTML = `<div class="options">` +
+      s.options.map((o, i) => `
+        <div class="option ${answers[current] === i ? 'selected' : ''}" onclick="selectOption(${i})">
+          <div class="option-dot"></div>
+          <span class="option-text">${o}</span>
+        </div>`).join('') +
+      `</div>`;
+  } else {
+    const rows = [];
+    const fields = s.fields;
+    if (fields.length === 2) {
+      rows.push(`<div class="form-row">`);
+      fields.forEach(f => rows.push(fieldHTML(f)));
+      rows.push(`</div>`);
+    } else {
+      fields.forEach(f => rows.push(`<div class="form-group">${fieldHTML(f)}</div>`));
+    }
+    fldContainer.innerHTML = rows.join('');
+
+    // Restore saved values
+    fields.forEach(f => {
+      const el = document.getElementById(f.id);
+      if (el && answers[f.id]) el.value = answers[f.id];
+    });
+  }
+
+  // animate
+  const card = document.getElementById('quiz-card');
+  card.style.animation = 'none';
+  card.offsetHeight;
+  card.style.animation = 'fadeUp 0.4s ease forwards';
+}
+
+function fieldHTML(f) {
+  return `
+    <div class="form-group">
+      <label class="form-label" for="${f.id}">${f.label}</label>
+      <input class="form-input" id="${f.id}" type="${f.type}" placeholder="${f.placeholder}">
+    </div>`;
+}
+
+function selectOption(i) {
+  answers[current] = i;
+  document.querySelectorAll('.option').forEach((el, idx) => {
+    el.classList.toggle('selected', idx === i);
+  });
+}
+
+function validateStep() {
+  const s = steps[current];
+  if (s.type === 'options') {
+    return answers[current] !== undefined;
+  } else {
+    // Save field values; only validate non-optional fields
+    let valid = true;
+    s.fields.forEach(f => {
+      const el = document.getElementById(f.id);
+      if (el) {
+        answers[f.id] = el.value;
+        // Optional: intencao is optional
+        if (f.id !== 'intencao' && !el.value.trim()) valid = false;
+      }
+    });
+    return valid;
+  }
+}
+
+function nextStep() {
+  if (!validateStep()) {
+    document.getElementById('error-msg').style.display = 'block';
+    return;
+  }
+  if (current < steps.length - 1) {
+    current++;
+    renderStep();
+  } else {
+    startGeneration();
+  }
+}
+
+function prevStep() {
+  if (current > 0) { current--; renderStep(); }
+}
+
+// ─── GENERATION FLOW ─────────────────────────────────────────
+let generatedContent = '';
+
+async function startGeneration() {
+  document.getElementById('quiz-card').style.display = 'none';
+  document.getElementById('progress-wrap').style.display = 'none';
+  document.getElementById('loading-screen').style.display = 'block';
+
+  const loadingSteps = [
+    { id: 'ls1', delay: 0 },
+    { id: 'ls2', delay: 1800 },
+    { id: 'ls3', delay: 3600 },
+    { id: 'ls4', delay: 5400 },
+    { id: 'ls5', delay: 7200 }
+  ];
+
+  loadingSteps.forEach((ls, idx) => {
+    setTimeout(() => {
+      if (idx > 0) document.getElementById(loadingSteps[idx-1].id).classList.replace('active','done');
+      document.getElementById(ls.id).classList.add('active');
+    }, ls.delay);
+  });
+
+  try {
+    const content = await generateMapaWithClaude();
+    generatedContent = content;
+    setTimeout(() => showResult(), 8500);
+  } catch (err) {
+    console.error(err);
+    generatedContent = getFallbackContent();
+    setTimeout(() => showResult(), 8500);
+  }
+}
+
+async function generateMapaWithClaude() {
+  const nome = answers['nome'] || 'Alma em busca';
+  const dataNasc = answers['data_nasc'] || '';
+  const horaNasc = answers['hora_nasc'] || '12:00';
+  const cidade = answers['cidade_nasc'] || 'Brasil';
+  const intencao = answers['intencao'] || '';
+
+  const questionLabels = [
+    'Sentimento sobre caminho de vida',
+    'Área que pede transformação',
+    'Relação com padrões repetitivos',
+    'Expectativa com o mapa',
+    'Relação com espiritualidade'
+  ];
+
+  const respostas = steps.filter(s => s.type === 'options').map((s, i) => {
+    const idx = answers[i];
+    return `${questionLabels[i]}: ${idx !== undefined ? s.options[idx] : 'não respondido'}`;
+  }).join('\n');
+
+  const prompt = `Você é um astrólogo experiente e escritor espiritual profundo. Gere um Mapa de Propósito Kármico personalizado em português brasileiro para a seguinte pessoa:
+
+DADOS DE NASCIMENTO:
+- Nome: ${nome}
+- Data: ${dataNasc}
+- Horário: ${horaNasc}
+- Cidade: ${cidade}
+${intencao ? `- Intenção para a leitura: ${intencao}` : ''}
+
+PERFIL DO QUESTIONÁRIO:
+${respostas}
+
+Escreva um relatório completo, profundo e personalizado com EXATAMENTE esta estrutura em JSON:
+
+{
+  "titulo": "Mapa de Propósito Kármico de [Nome]",
+  "subtitulo": "Uma jornada de autoconhecimento astral",
+  "introducao": "Parágrafo de abertura personalizado (4-5 linhas), acolhedor e profundo",
+  "blocos": [
+    {
+      "numero": "01",
+      "simbolo": "☽",
+      "titulo": "Missão de Vida",
+      "subtitulo": "Nodo Norte e a Direção Kármica",
+      "conteudo": "Texto profundo e personalizado de 6-8 linhas sobre a missão kármica desta pessoa baseado no perfil dela"
+    },
+    {
+      "numero": "02",
+      "simbolo": "♄",
+      "titulo": "Lições Kármicas",
+      "subtitulo": "Saturno, Quíron e os Desafios da Alma",
+      "conteudo": "Texto de 6-8 linhas sobre lições kármicas e padrões a transformar"
+    },
+    {
+      "numero": "03",
+      "simbolo": "☀",
+      "titulo": "Propósito e Dom",
+      "subtitulo": "Sol, Lua e o Talento que Veio Expressar",
+      "conteudo": "Texto de 6-8 linhas sobre os dons e a vocação desta alma"
+    },
+    {
+      "numero": "04",
+      "simbolo": "♇",
+      "titulo": "Desafios e Padrões",
+      "subtitulo": "As Sombras que Pedem Transformação",
+      "conteudo": "Texto de 6-8 linhas sobre padrões emocionais e como superá-los"
+    },
+    {
+      "numero": "05",
+      "simbolo": "✦",
+      "titulo": "Síntese e Orientações",
+      "subtitulo": "O Caminho à Frente",
+      "conteudo": "Texto de 6-8 linhas com síntese da missão e práticas espirituais recomendadas"
+    }
+  ],
+  "afirmacao": "Uma afirmação kármica poderosa e personalizada para esta pessoa (1-2 linhas)",
+  "fechamento": "Parágrafo final de encerramento (3-4 linhas)"
+}
+
+Responda APENAS com o JSON. Sem markdown, sem texto fora do JSON. Tom: profundo, lírico, preciso e transformador.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  const data = await response.json();
+  const text = data.content.map(i => i.text || '').join('');
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+function getFallbackContent() {
+  const nome = answers['nome'] || 'Alma';
+  return {
+    titulo: `Mapa de Propósito Kármico de ${nome}`,
+    subtitulo: 'Uma jornada de autoconhecimento astral',
+    introducao: `${nome}, os astros registraram cada instante da sua chegada a este plano. Seu mapa natal é uma impressão digital da sua alma — único, intransferível, carregado de significado. O que você está prestes a ler não é uma previsão: é um espelho. Uma das mais honestas e profundas conversas que você terá consigo mesmo.`,
+    blocos: [
+      { numero: '01', simbolo: '☽', titulo: 'Missão de Vida', subtitulo: 'Nodo Norte e a Direção Kármica', conteudo: 'Sua alma escolheu vir até aqui com uma missão específica. O Nodo Norte aponta para onde você precisa crescer — para fora da zona de conforto das vidas passadas, em direção à expressão plena de quem você veio ser. Esta encarnação pede que você avance com coragem mesmo quando a incerteza parece maior que a clareza.' },
+      { numero: '02', simbolo: '♄', titulo: 'Lições Kármicas', subtitulo: 'Saturno, Quíron e os Desafios da Alma', conteudo: 'Os padrões que se repetem na sua vida não são punição — são convites. Saturno, o grande professor do zodíaco, marca os pontos onde sua alma ainda tem algo a aprender. Quíron revela onde você foi ferido para que pudesse, um dia, curar os outros.' },
+      { numero: '03', simbolo: '☀', titulo: 'Propósito e Dom', subtitulo: 'Sol, Lua e o Talento que Veio Expressar', conteudo: 'Você carrega dons que foram cultivados ao longo de várias encarnações. O Sol revela sua essência — o que você veio expressar publicamente. A Lua aponta para seus recursos internos mais profundos. Juntos, eles formam o mapa de como você pode servir ao mundo de forma autêntica.' },
+      { numero: '04', simbolo: '♇', titulo: 'Desafios e Padrões', subtitulo: 'As Sombras que Pedem Transformação', conteudo: 'Plutão e os aspectos tensos do seu mapa revelam as sombras que sua alma trouxe para transformar. Não para serem eliminadas — mas integradas. É justamente nessas áreas que reside seu maior poder de transmutação e liderança espiritual.' },
+      { numero: '05', simbolo: '✦', titulo: 'Síntese e Orientações', subtitulo: 'O Caminho à Frente', conteudo: 'Você veio para integrar. Para unir mundos, curar linhagens e expressar algo que só você pode expressar da forma que você expressa. Sua jornada inclui tanto o serviço ao mundo quanto o cuidado de si. Práticas de meditação, escrita reflexiva e trabalho com os ancestrais podem aprofundar o que este mapa revelou.' }
+    ],
+    afirmacao: `Eu, ${nome}, estou em paz com minha missão. Cada passo que dou é guiado pela sabedoria da minha alma.`,
+    fechamento: `Este mapa é um ponto de partida, não um destino. Volte a ele nas encruzilhadas, nas dúvidas, nos momentos de clareza. Ele foi traçado especialmente para você — e os astros sempre souberam que você chegaria até aqui.`
+  };
+}
+
+function showResult() {
+  document.getElementById('loading-screen').style.display = 'none';
+  const result = document.getElementById('result-screen');
+  result.style.display = 'block';
+  result.style.animation = 'fadeUp 0.6s ease forwards';
+
+  const nome = answers['nome'] || 'Sua Alma';
+  document.getElementById('result-name').textContent = generatedContent.titulo || `Mapa de ${nome}`;
+  document.getElementById('result-preview').textContent = generatedContent.introducao || '';
+}
+
+// ─── PDF GENERATION ───────────────────────────────────────────
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210, H = 297;
+
+  function addPage() {
+    doc.addPage();
+    drawPageBg();
+  }
+
+  function drawPageBg() {
+    // Deep navy background
+    doc.setFillColor(8, 13, 31);
+    doc.rect(0, 0, W, H, 'F');
+    // Subtle border
+    doc.setDrawColor(201, 168, 76, 0.3);
+    doc.setLineWidth(0.3);
+    doc.rect(8, 8, W-16, H-16);
+    doc.setLineWidth(0.1);
+    doc.rect(10, 10, W-20, H-20);
+  }
+
+  function goldLine(y) {
+    doc.setDrawColor(201, 168, 76);
+    doc.setLineWidth(0.3);
+    doc.line(20, y, W-20, y);
+  }
+
+  function writeWrapped(text, x, y, maxW, lineH, color) {
+    doc.setTextColor(...color);
+    const lines = doc.splitTextToSize(text, maxW);
+    doc.text(lines, x, y);
+    return y + lines.length * lineH;
+  }
+
+  // ── CAPA ──────────────────────────────────────────
+  drawPageBg();
+
+  // Gold ornament top
+  doc.setTextColor(201, 168, 76);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'normal');
+  doc.text('✦  ✦  ✦', W/2, 30, { align: 'center' });
+
+  // Title
+  doc.setFontSize(9);
+  doc.setTextColor(184, 169, 144);
+  doc.text('MAPA DE PROPÓSITO KÁRMICO', W/2, 55, { align: 'center' });
+
+  goldLine(60);
+
+  const nome = answers['nome'] || 'Alma';
+  doc.setFontSize(26);
+  doc.setTextColor(255, 255, 255);
+  doc.text(nome, W/2, 80, { align: 'center' });
+
+  doc.setFontSize(12);
+  doc.setTextColor(201, 168, 76);
+  doc.text(generatedContent.subtitulo || 'Uma jornada de autoconhecimento astral', W/2, 92, { align: 'center' });
+
+  goldLine(100);
+
+  // Data info box
+  const dataNasc = answers['data_nasc'] ? formatDate(answers['data_nasc']) : '—';
+  const cidade = answers['cidade_nasc'] || '—';
+  const hora = answers['hora_nasc'] || '—';
+
+  const infoY = 115;
+  doc.setFontSize(8);
+  doc.setTextColor(138, 110, 46);
+  doc.text('DATA DE NASCIMENTO', W/2 - 55, infoY, { align: 'center' });
+  doc.text('HORÁRIO', W/2, infoY, { align: 'center' });
+  doc.text('LOCAL', W/2 + 55, infoY, { align: 'center' });
+
+  doc.setFontSize(11);
+  doc.setTextColor(240, 230, 211);
+  doc.text(dataNasc, W/2 - 55, infoY + 8, { align: 'center' });
+  doc.text(hora, W/2, infoY + 8, { align: 'center' });
+  doc.text(cidade, W/2 + 55, infoY + 8, { align: 'center', maxWidth: 50 });
+
+  // Mandala SVG-like decoration (circles)
+  doc.setDrawColor(201, 168, 76, 0.2);
+  doc.setLineWidth(0.2);
+  for (let r = 10; r <= 40; r += 10) {
+    doc.circle(W/2, 185, r);
+  }
+  doc.setFillColor(201, 168, 76);
+  doc.circle(W/2, 185, 2, 'F');
+  doc.setDrawColor(201, 168, 76, 0.4);
+  for (let angle = 0; angle < 360; angle += 45) {
+    const rad = angle * Math.PI / 180;
+    doc.line(W/2, 185, W/2 + Math.cos(rad)*40, 185 + Math.sin(rad)*40);
+  }
+
+  // Intro text
+  const introY = 220;
+  doc.setFontSize(11);
+  const introLines = doc.splitTextToSize(generatedContent.introducao || '', W - 48);
+  doc.setTextColor(184, 169, 144);
+  doc.setFont('helvetica', 'italic');
+  doc.text(introLines, W/2, introY, { align: 'center', maxWidth: W-48 });
+
+  goldLine(H - 25);
+  doc.setFontSize(8);
+  doc.setTextColor(138, 110, 46);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Espiritualidade & Astrologia  ·  Mapa Personalizado', W/2, H - 18, { align: 'center' });
+
+  // ── BLOCOS ────────────────────────────────────────
+  const blocos = generatedContent.blocos || [];
+  blocos.forEach((bloco, idx) => {
+    addPage();
+
+    // Block number
+    doc.setFontSize(60);
+    doc.setTextColor(20, 29, 58);
+    doc.setFont('helvetica', 'bold');
+    doc.text(bloco.numero, W - 24, 40, { align: 'right' });
+
+    // Symbol
+    doc.setFontSize(28);
+    doc.setTextColor(201, 168, 76);
+    doc.text(bloco.simbolo || '✦', 24, 42);
+
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.text(bloco.titulo, 24, 58);
+
+    // Subtitle
+    doc.setFontSize(10);
+    doc.setTextColor(201, 168, 76);
+    doc.setFont('helvetica', 'italic');
+    doc.text(bloco.subtitulo || '', 24, 67);
+
+    goldLine(75);
+
+    // Content
+    doc.setFontSize(12);
+    doc.setTextColor(240, 230, 211);
+    doc.setFont('helvetica', 'normal');
+    const contentLines = doc.splitTextToSize(bloco.conteudo || '', W - 48);
+    doc.text(contentLines, 24, 90);
+
+    // Footer
+    goldLine(H - 25);
+    doc.setFontSize(8);
+    doc.setTextColor(138, 110, 46);
+    doc.text(`${nome}  ·  Bloco ${bloco.numero} de 05`, W/2, H - 18, { align: 'center' });
+  });
+
+  // ── PÁGINA FINAL ──────────────────────────────────
+  addPage();
+
+  doc.setFontSize(9);
+  doc.setTextColor(138, 110, 46);
+  doc.text('AFIRMAÇÃO KÁRMICA', W/2, 45, { align: 'center' });
+
+  goldLine(52);
+
+  doc.setFontSize(14);
+  doc.setTextColor(201, 168, 76);
+  doc.setFont('helvetica', 'italic');
+  const afirmLines = doc.splitTextToSize(`"${generatedContent.afirmacao || ''}"`, W - 60);
+  doc.text(afirmLines, W/2, 70, { align: 'center', maxWidth: W - 60 });
+
+  goldLine(100);
+
+  doc.setFontSize(11);
+  doc.setTextColor(184, 169, 144);
+  doc.setFont('helvetica', 'normal');
+  const fechLines = doc.splitTextToSize(generatedContent.fechamento || '', W - 48);
+  doc.text(fechLines, W/2, 120, { align: 'center', maxWidth: W - 48 });
+
+  // Ornament
+  doc.setFontSize(20);
+  doc.setTextColor(201, 168, 76);
+  doc.text('✦', W/2, 180, { align: 'center' });
+
+  goldLine(H - 25);
+  doc.setFontSize(8);
+  doc.setTextColor(138, 110, 46);
+  doc.text(`Mapa de Propósito Kármico  ·  ${nome}  ·  ${new Date().getFullYear()}`, W/2, H - 18, { align: 'center' });
+
+  doc.save(`Mapa_Proposito_Karmico_${nome.replace(/\s+/g,'_')}.pdf`);
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const [y, m, dd] = d.split('-');
+  return `${dd}/${m}/${y}`;
+}
+
+// Init
+renderStep();
+</script>
+</body>
+</html>
