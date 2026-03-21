@@ -773,7 +773,7 @@ Gere exatamente este JSON:
   ]
 }`;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/claude', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1232,20 +1232,23 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
       console.log('1/4 → geo-details:', cidade);
       let latitude, longitude, timezone;
       try {
-        const geo = await vedicPost('geo-details', { location: cidade });
-        const loc = Array.isArray(geo) ? geo[0] : geo;
-        latitude  = loc.latitude;
-        longitude = loc.longitude;
-        timezone  = loc.timezone_offset;
-        console.log('✅ Geo:', { latitude, longitude, timezone, nome: loc.complete_name });
+        const geoRaw = await vedicPost('geo-details', { location: cidade });
+        // A API retorna um array — pega o primeiro resultado
+        const geoArr = Array.isArray(geoRaw) ? geoRaw : (geoRaw?.output || [geoRaw]);
+        const loc    = geoArr[0];
+        if (!loc || loc.latitude == null) throw new Error('Resposta geo vazia: ' + JSON.stringify(geoRaw).slice(0,200));
+        latitude  = parseFloat(loc.latitude);
+        longitude = parseFloat(loc.longitude);
+        timezone  = parseFloat(loc.timezone_offset ?? loc.timezone ?? -3);
+        console.log('✅ Geo:', { latitude, longitude, timezone, nome: loc.complete_name || loc.location_name });
       } catch (geoErr) {
-        console.warn('⚠️ geo-details falhou, usando fallback -23.55/-46.63 (SP):', geoErr.message);
+        console.warn('⚠️ geo-details falhou, usando São Paulo como fallback:', geoErr.message);
         latitude  = -23.5505;
         longitude = -46.6333;
         timezone  = -3;
       }
 
-      // ── Payload base compartilhado pelos 3 endpoints astrais
+      // ── Payload base
       const basePayload = {
         year, month, date: day,
         hours: hour, minutes: minute, seconds: 0,
@@ -1257,12 +1260,33 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
         },
       };
 
-      // ── ETAPAS 2, 3 e 4: Planets + Houses + Aspects em paralelo
-      console.log('2-4/4 → planets + houses + aspects (paralelo)');
-      const [planetsRes, housesRes, aspectsRes] = await Promise.allSettled([
-        vedicPost('western/planets', basePayload),
-        vedicPost('western/houses',  { ...basePayload, config: { ...basePayload.config, house_system: 'Placidus' } }),
-        vedicPost('western/aspects', {
+      // ── ETAPAS 2, 3 e 4: sequencial com delay entre chamadas para evitar rate limit 429
+      console.log('2/4 → western/planets');
+      let planetsData = null, housesData = null, aspectsData = null;
+
+      try {
+        const r = await vedicPost('western/planets', basePayload);
+        planetsData = r;
+        console.log('✅ Planets:', r?.output?.length ?? '?', 'corpos');
+      } catch(e) { console.warn('⚠️ planets falhou:', e.message); }
+
+      await sleep(400); // respeita rate limit da API gratuita
+
+      console.log('3/4 → western/houses');
+      try {
+        const r = await vedicPost('western/houses', {
+          ...basePayload,
+          config: { ...basePayload.config, house_system: 'Placidus' },
+        });
+        housesData = r;
+        console.log('✅ Houses:', r?.output?.Houses?.length ?? '?', 'casas');
+      } catch(e) { console.warn('⚠️ houses falhou:', e.message); }
+
+      await sleep(400);
+
+      console.log('4/4 → western/aspects');
+      try {
+        const r = await vedicPost('western/aspects', {
           ...basePayload,
           config: {
             ...basePayload.config,
@@ -1270,19 +1294,14 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
             allowed_aspects: ['Conjunction','Opposition','Trine','Square','Sextile','Quincunx'],
             orb_values: { Conjunction: 8, Opposition: 8, Trine: 7, Square: 7, Sextile: 6, Quincunx: 3 },
           },
-        }),
-      ]);
+        });
+        aspectsData = r;
+        console.log('✅ Aspects:', r?.output?.length ?? '?', 'aspectos');
+      } catch(e) { console.warn('⚠️ aspects falhou:', e.message); }
 
-      const planetsData = planetsRes.status === 'fulfilled' ? planetsRes.value : null;
-      const housesData  = housesRes.status  === 'fulfilled' ? housesRes.value  : null;
-      const aspectsData = aspectsRes.status === 'fulfilled' ? aspectsRes.value : null;
-
-      console.log('Planets:', planetsRes.status, planetsData?.output?.length ?? '—', 'corpos');
-      console.log('Houses:', housesRes.status, housesData?.output?.Houses?.length ?? '—', 'casas');
-      console.log('Aspects:', aspectsRes.status, aspectsData?.output?.length ?? '—', 'aspectos');
       console.groupEnd();
 
-      // Se planets falhou completamente, tenta fallback
+      // Se planets falhou completamente, tenta freeastroapi.com como fallback
       if (!planetsData) {
         console.warn('Planets falhou — tentando freeastroapi.com como fallback');
         return buscarDadosAstrasFallbackAPI(year, month, day, hour, minute, cidade);
@@ -1523,7 +1542,12 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
     let mapaData = null;
 
     async function callAPI(prompt) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      // A Anthropic API bloqueia chamadas diretas do browser por CORS.
+      // Usamos um endpoint de proxy no próprio Vercel que repassa a requisição.
+      // Arquivo: /api/claude.js no repositório (ver instruções abaixo)
+      const PROXY_URL = '/api/claude';
+
+      const response = await fetch(PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
