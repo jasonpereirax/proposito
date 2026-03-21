@@ -435,86 +435,40 @@
 
 
     /* ═══════════════════════════════════════════════════════════
-       QUIZ — 8 ETAPAS
+       QUIZ — NOVA ESTRUTURA
+       ───────────────────────────────────────────────────────────
+       Fase 1 (etapas 1–3): dados de nascimento
+         Etapa 1 → nome + data
+         Etapa 2 → hora + cidade
+         Etapa 3 → email + intenção
+       Fase 2 (etapas 4–8): 5 perguntas geradas dinamicamente
+         pelo Claude com base no perfil astral e numerológico real
     ═══════════════════════════════════════════════════════════ */
-    const STEPS = [
+
+    // Etapas fixas de coleta de dados (Fase 1)
+    const STEPS_DADOS = [
       {
-        type: 'options', num: '01',
-        question: 'Como você se sente em relação ao seu caminho de vida hoje?',
-        sub: 'Escolha a resposta que mais ressoa com você neste momento.',
-        options: [
-          'Sinto que tenho um propósito claro, mas algo me impede de vivê-lo plenamente',
-          'Estou buscando ativamente meu propósito, mas ainda não o encontrei',
-          'Repito padrões que não consigo mudar e isso me limita',
-          'Estou em transição e preciso de direção para o próximo passo',
-        ],
-      },
-      {
-        type: 'options', num: '02',
-        question: 'Qual área da sua vida pede mais atenção e transformação?',
-        sub: 'Onde você sente o maior bloqueio ou potencial inexplorado?',
-        options: [
-          'Relacionamentos e vínculos afetivos',
-          'Carreira, vocação e realização profissional',
-          'Saúde, corpo e bem-estar',
-          'Propósito espiritual e evolução da consciência',
-        ],
-      },
-      {
-        type: 'options', num: '03',
-        question: 'Como você lida com os padrões que se repetem na sua vida?',
-        sub: 'Seja honesto — o mapa não julga, apenas revela.',
-        options: [
-          'Percebo os padrões mas não sei como quebrá-los',
-          'Às vezes entendo de onde vêm, mas ainda me pego repetindo',
-          'Sinto que são heranças familiares ou de vidas passadas',
-          'Já trabalhei muito isso, mas algumas resistências persistem',
-        ],
-      },
-      {
-        type: 'options', num: '04',
-        question: 'O que você espera descobrir com o seu Mapa de Propósito?',
-        sub: 'Sua intenção orienta como a leitura será direcionada.',
-        options: [
-          'Minha missão de vida e o que vim fazer nesta encarnação',
-          'Meus talentos e dons que ainda não expressei plenamente',
-          'As raízes dos meus bloqueios e como superá-los',
-          'Uma visão integrada: missão, dons e desafios',
-        ],
-      },
-      {
-        type: 'options', num: '05',
-        question: 'Como você se relaciona com a espiritualidade e o autoconhecimento?',
-        sub: 'Não há resposta certa — apenas sua verdade.',
-        options: [
-          'É parte central da minha vida e do meu desenvolvimento',
-          'Tenho interesse crescente e quero aprofundar',
-          'Sou cético(a) mas aberto(a) — os resultados me convencem',
-          'Busco integrar espiritualidade com praticidade no dia a dia',
-        ],
-      },
-      {
-        type: 'fields', num: '06',
-        question: 'Agora, precisamos dos dados do seu nascimento',
-        sub: 'Estes dados alimentam o cálculo numerológico e astral do seu mapa.',
+        type: 'fields', num: '01',
+        question: 'Vamos começar pelo começo',
+        sub: 'Seu nome e data de nascimento são a base de todo o cálculo astral e numerológico.',
         fields: [
-          { id: 'nome',      label: 'SEU NOME COMPLETO',  type: 'text', placeholder: 'Como você se chama',  required: true  },
-          { id: 'data_nasc', label: 'DATA DE NASCIMENTO', type: 'date', placeholder: '',                    required: true  },
+          { id: 'nome',      label: 'SEU NOME',             type: 'text', placeholder: 'Como você se chama',  required: true  },
+          { id: 'data_nasc', label: 'DATA DE NASCIMENTO',   type: 'date', placeholder: '',                    required: true  },
         ],
       },
       {
-        type: 'fields', num: '07',
+        type: 'fields', num: '02',
         question: 'Horário e local de nascimento',
-        sub: 'O Ascendente e as Casas são calculados com o horário. Se não souber, use aproximadamente.',
+        sub: 'O Ascendente e as Casas são calculados com o horário. Se não souber exatamente, use aproximadamente.',
         fields: [
           { id: 'hora_nasc',   label: 'HORÁRIO DE NASCIMENTO', type: 'time', placeholder: '',                          required: true  },
           { id: 'cidade_nasc', label: 'CIDADE DE NASCIMENTO',  type: 'text', placeholder: 'Ex: São Paulo, SP, Brasil', required: true  },
         ],
       },
       {
-        type: 'fields', num: '08',
-        question: 'Última etapa — quase lá',
-        sub: 'Seu mapa será gerado e disponibilizado para download imediato.',
+        type: 'fields', num: '03',
+        question: 'Só mais um detalhe',
+        sub: 'Seu mapa será gerado e disponibilizado para download. Uma intenção pode orientar a leitura.',
         fields: [
           { id: 'email',    label: 'SEU E-MAIL',                                type: 'email', placeholder: 'seu@email.com',                          required: true  },
           { id: 'intencao', label: 'UMA INTENÇÃO PARA ESTA LEITURA (opcional)', type: 'text',  placeholder: 'O que você pede que os astros iluminem?', required: false },
@@ -522,14 +476,79 @@
       },
     ];
 
+    // Etapas dinâmicas — preenchidas após buscar dados astrais (Fase 2)
+    let STEPS_DINAMICAS = [];
+
+    // STEPS completo: começa com dados, depois dinâmicas
+    let STEPS = [...STEPS_DADOS];
+
     let currentStep = 0;
     const answers   = {};
+
+    // Estado da fase 1
+    let perfilAstralCarregado = false;
+    let numerologiaCache = null;
+    let astralCache      = null;
+
+    /* ── Tela de transição entre fases ── */
+    function mostrarTransicao() {
+      const card = document.getElementById('quiz-card');
+      card.innerHTML = `
+        <div style="text-align:center;padding:20px 0">
+          <div style="font-size:28px;margin-bottom:20px;animation:pulse 2s ease-in-out infinite">✦</div>
+          <div style="font-family:'Cinzel',serif;font-size:16px;color:var(--white);margin-bottom:10px">
+            Consultando os astros…
+          </div>
+          <div style="font-size:14px;color:var(--cream-dim);font-style:italic;margin-bottom:28px">
+            Calculando seu mapa natal e preparando suas perguntas
+          </div>
+          <div id="transicao-steps" style="max-width:300px;margin:0 auto;text-align:left">
+            <div id="ts1" style="display:flex;gap:10px;align-items:center;font-size:13px;color:var(--cream-dim);opacity:.3;transition:opacity .5s;margin-bottom:8px">
+              <span>#</span> Calculando número de destino
+            </div>
+            <div id="ts2" style="display:flex;gap:10px;align-items:center;font-size:13px;color:var(--cream-dim);opacity:.3;transition:opacity .5s;margin-bottom:8px">
+              <span>o</span> Buscando posições planetárias reais
+            </div>
+            <div id="ts3" style="display:flex;gap:10px;align-items:center;font-size:13px;color:var(--cream-dim);opacity:.3;transition:opacity .5s">
+              <span>✦</span> Gerando suas perguntas personalizadas
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function setTransStep(n) {
+      for (let i = 1; i <= 3; i++) {
+        const el = document.getElementById(`ts${i}`);
+        if (!el) continue;
+        if (i < n)  { el.style.opacity = '0.7'; el.style.color = 'var(--cream)'; }
+        if (i === n){ el.style.opacity = '1';   el.style.color = 'var(--gold)'; }
+        if (i > n)  { el.style.opacity = '0.3'; }
+      }
+    }
 
     /* ── render ── */
     function renderStep() {
       const s = STEPS[currentStep];
 
-      document.getElementById('step-num').textContent     = `QUESTÃO ${s.num}`;
+      // Restaura o card se estava em modo transição
+      const card = document.getElementById('quiz-card');
+      if (!card.querySelector('.step-num-el')) {
+        card.innerHTML = `
+          <div id="step-num" class="step-num"></div>
+          <div id="question" class="question"></div>
+          <div id="question-sub" class="question-sub"></div>
+          <div id="options-container"></div>
+          <div id="fields-container"></div>
+          <div class="error-msg" id="error-msg">
+            Por favor, preencha todos os campos obrigatórios antes de continuar.
+          </div>
+          <div class="nav">
+            <button class="btn btn-prev" id="btn-prev" onclick="prevStep()">← Voltar</button>
+            <button class="btn btn-next" id="btn-next" onclick="nextStep()">Continuar →</button>
+          </div>`;
+      }
+
+      document.getElementById('step-num').textContent     = `ETAPA ${s.num}`;
       document.getElementById('question').textContent     = s.question;
       document.getElementById('question-sub').textContent = s.sub;
       document.getElementById('error-msg').style.display  = 'none';
@@ -537,12 +556,14 @@
       document.getElementById('btn-prev').style.visibility =
         currentStep === 0 ? 'hidden' : 'visible';
 
+      const isLast = currentStep === STEPS.length - 1;
       document.getElementById('btn-next').textContent =
-        currentStep === STEPS.length - 1 ? 'Gerar Meu Mapa ✦' : 'Continuar →';
+        isLast ? 'Gerar Meu Mapa ✦' : 'Continuar →';
 
-      const pct = Math.round(((currentStep + 1) / STEPS.length) * 100);
+      const total = STEPS.length;
+      const pct   = Math.round(((currentStep + 1) / total) * 100);
       document.getElementById('progress-fill').style.width = pct + '%';
-      document.getElementById('progress-text').textContent = `PASSO ${currentStep + 1} DE ${STEPS.length}`;
+      document.getElementById('progress-text').textContent = `ETAPA ${currentStep + 1} DE ${total}`;
       document.getElementById('progress-pct').textContent  = pct + '%';
 
       document.getElementById('options-container').innerHTML = '';
@@ -550,7 +571,6 @@
 
       s.type === 'options' ? renderOptions(s) : renderFields(s);
 
-      const card = document.getElementById('quiz-card');
       card.style.animation = 'none';
       card.offsetHeight;
       card.style.animation = 'fadeUp 0.4s ease forwards';
@@ -611,12 +631,264 @@
         document.getElementById('error-msg').style.display = 'block';
         return;
       }
-      if (currentStep < STEPS.length - 1) { currentStep++; renderStep(); }
-      else startGeneration();
+
+      // Fim da Fase 1 (etapa 3 = índice 2) — buscar dados e gerar perguntas
+      if (currentStep === STEPS_DADOS.length - 1 && !perfilAstralCarregado) {
+        carregarPerfilEGerarPerguntas();
+        return;
+      }
+
+      if (currentStep < STEPS.length - 1) {
+        currentStep++;
+        renderStep();
+      } else {
+        startGeneration();
+      }
     }
 
     function prevStep() {
       if (currentStep > 0) { currentStep--; renderStep(); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       FASE 1 → FASE 2
+       Após coletar dados: calcula numerologia, busca dados astrais
+       reais e pede ao Claude para gerar 5 perguntas personalizadas
+    ═══════════════════════════════════════════════════════════ */
+    async function carregarPerfilEGerarPerguntas() {
+      mostrarTransicao();
+
+      try {
+        // ── Passo 1: Numerologia local
+        setTransStep(1);
+        numerologiaCache = calcularNumerologia(answers['data_nasc']);
+        console.log('🔢 Numerologia:', numerologiaCache);
+        await sleep(600);
+
+        // ── Passo 2: Dados astrais reais
+        setTransStep(2);
+        try {
+          astralCache = await buscarDadosAstrais();
+          console.log('🌟 Dados astrais:', astralCache);
+        } catch (e) {
+          console.warn('FreeAstroAPI falhou:', e.message);
+          astralCache = dadosAstraisFallback();
+        }
+        await sleep(400);
+
+        // ── Passo 3: Claude gera perguntas personalizadas
+        setTransStep(3);
+        const perguntas = await gerarPerguntasPersonalizadas(numerologiaCache, astralCache);
+        STEPS_DINAMICAS = perguntas;
+        STEPS = [...STEPS_DADOS, ...STEPS_DINAMICAS];
+        perfilAstralCarregado = true;
+
+        await sleep(400);
+
+        // Avança para a primeira pergunta dinâmica
+        currentStep = STEPS_DADOS.length;
+        renderStep();
+
+      } catch (err) {
+        console.error('Erro ao carregar perfil:', err);
+        // Fallback: usa perguntas genéricas pré-definidas
+        STEPS_DINAMICAS = perguntasFallback();
+        STEPS = [...STEPS_DADOS, ...STEPS_DINAMICAS];
+        perfilAstralCarregado = true;
+        currentStep = STEPS_DADOS.length;
+        renderStep();
+      }
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    /* ── Gera 5 perguntas personalizadas via Claude ── */
+    async function gerarPerguntasPersonalizadas(numerologia, astral) {
+      const nome   = (answers['nome'] || 'Alma').trim().split(/\s+/)[0];
+      const dataNasc = answers['data_nasc'] ? formatDate(answers['data_nasc']) : '?';
+      const intenc = answers['intencao'] || '';
+
+      const prompt = `Você é um astrólogo especialista em mapas de propósito de vida. Baseado nos dados astrológicos e numerológicos reais desta pessoa, gere 5 perguntas de autoconhecimento altamente personalizadas para um quiz.
+
+DADOS REAIS DA PESSOA:
+Nome: ${nome}
+Data de nascimento: ${dataNasc}
+Número de Destino: ${numerologia.numero} — ${numerologia.nome}
+
+Mapa Natal:
+Sol: ${astral.sol_signo} (Casa ${astral.sol_casa})
+Lua: ${astral.lua_signo} (Casa ${astral.lua_casa})
+Ascendente: ${astral.ascendente}
+Meio do Céu: ${astral.mc_signo}
+Mercúrio: ${astral.mercurio_signo} (Casa ${astral.mercurio_casa})${astral.mercurio_retro ? ' ℞' : ''}
+Vênus: ${astral.venus_signo} (Casa ${astral.venus_casa})
+Marte: ${astral.marte_signo} (Casa ${astral.marte_casa})
+Júpiter: ${astral.jupiter_signo} (Casa ${astral.jupiter_casa})${astral.jupiter_retro ? ' ℞' : ''}
+Saturno: ${astral.saturno_signo} (Casa ${astral.saturno_casa})${astral.saturno_retro ? ' ℞' : ''}
+Plutão: ${astral.plutao_signo} (Casa ${astral.plutao_casa})${astral.plutao_retro ? ' ℞' : ''}
+Quíron: ${astral.quiron_signo} (Casa ${astral.quiron_casa})
+Lilith: ${astral.lilith_signo} (Casa ${astral.lilith_casa})
+Nodo Norte: ${astral.nodo_norte_signo} (Casa ${astral.nodo_norte_casa})
+Nodo Sul: ${astral.nodo_sul_signo}
+Planetas retrógrados: ${astral.retrogrados}
+Elemento dominante: ${astral.elemento_dominante}
+Modalidade dominante: ${astral.modalidade_dominante}
+${intenc ? `Intenção declarada: ${intenc}` : ''}
+
+REGRAS:
+1. Responda APENAS com JSON válido. Zero texto fora do JSON.
+2. Cada pergunta deve ser diretamente inspirada por um aspecto específico do mapa natal real.
+3. As 4 opções devem ser concretas e específicas para este perfil — nunca genéricas.
+4. Tom: íntimo, provocativo, direto — como se o mapa já conhecesse a pessoa.
+5. Distribua as perguntas entre os diferentes elementos do mapa (não use só Sol e Lua).
+
+Gere exatamente este JSON:
+{
+  "perguntas": [
+    {
+      "pergunta": "Pergunta direta sobre Sol em ${astral.sol_signo} e vocação",
+      "sub": "Uma linha de contexto astrológico sutil — mencione o signo ou a casa",
+      "opcoes": ["Opção A", "Opção B", "Opção C", "Opção D"]
+    },
+    {
+      "pergunta": "Pergunta sobre Lua em ${astral.lua_signo} e vida emocional ou segurança",
+      "sub": "Uma linha de contexto",
+      "opcoes": ["Opção A", "Opção B", "Opção C", "Opção D"]
+    },
+    {
+      "pergunta": "Pergunta sobre Saturno em ${astral.saturno_signo} e Quíron em ${astral.quiron_signo} — lições e ferida",
+      "sub": "Uma linha de contexto sobre aprendizado ou padrão kármico",
+      "opcoes": ["Opção A", "Opção B", "Opção C", "Opção D"]
+    },
+    {
+      "pergunta": "Pergunta sobre Nodo Norte em ${astral.nodo_norte_signo} (Casa ${astral.nodo_norte_casa}) — direção evolutiva",
+      "sub": "Uma linha de contexto sobre o caminho de crescimento",
+      "opcoes": ["Opção A", "Opção B", "Opção C", "Opção D"]
+    },
+    {
+      "pergunta": "Pergunta integradora conectando número ${numerologia.numero} (${numerologia.nome}) com o elemento ${astral.elemento_dominante} dominante",
+      "sub": "Uma linha de contexto que integra numerologia e astrologia",
+      "opcoes": ["Opção A", "Opção B", "Opção C", "Opção D"]
+    }
+  ]
+}`;
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model:      'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          messages:   [{ role: 'user', content: prompt }],
+        }),
+      });
+
+      const data   = await response.json();
+      const raw    = (data.content || []).map(b => b.text || '').join('').replace(/```json|```/g,'').trim();
+      const parsed = JSON.parse(raw);
+
+      // Converte para o formato STEPS
+      return parsed.perguntas.map((p, i) => ({
+        type:     'options',
+        num:      String(i + 4).padStart(2, '0'),
+        question: p.pergunta,
+        sub:      p.sub,
+        options:  p.opcoes,
+      }));
+    }
+
+    /* ── Fallback de perguntas caso a API falhe ── */
+    function perguntasFallback() {
+      return [
+        {
+          type: 'options', num: '04',
+          question: 'Como você se sente em relação ao seu caminho de vida hoje?',
+          sub: 'Escolha a resposta que mais ressoa com você neste momento.',
+          options: [
+            'Sinto que tenho um propósito claro, mas algo me impede de vivê-lo',
+            'Estou buscando ativamente meu propósito, mas ainda não o encontrei',
+            'Repito padrões que não consigo mudar e isso me limita',
+            'Estou em transição e preciso de direção para o próximo passo',
+          ],
+        },
+        {
+          type: 'options', num: '05',
+          question: 'Qual área da sua vida pede mais atenção agora?',
+          sub: 'Onde você sente o maior bloqueio ou potencial inexplorado?',
+          options: [
+            'Relacionamentos e vínculos afetivos',
+            'Carreira, vocação e realização profissional',
+            'Saúde, corpo e bem-estar',
+            'Propósito espiritual e evolução da consciência',
+          ],
+        },
+        {
+          type: 'options', num: '06',
+          question: 'Como você lida com os padrões que se repetem na sua vida?',
+          sub: 'Seja honesto — o mapa não julga, apenas revela.',
+          options: [
+            'Percebo os padrões mas não sei como quebrá-los',
+            'Às vezes entendo de onde vêm, mas ainda me pego repetindo',
+            'Sinto que são heranças familiares ou de vidas passadas',
+            'Já trabalhei muito isso, mas algumas resistências persistem',
+          ],
+        },
+        {
+          type: 'options', num: '07',
+          question: 'O que você espera descobrir com o seu Mapa de Propósito?',
+          sub: 'Sua intenção orienta como a leitura será direcionada.',
+          options: [
+            'Minha missão de vida e o que vim fazer nesta encarnação',
+            'Meus talentos e dons que ainda não expressei plenamente',
+            'As raízes dos meus bloqueios e como superá-los',
+            'Uma visão integrada: missão, dons e desafios',
+          ],
+        },
+        {
+          type: 'options', num: '08',
+          question: 'Como você se relaciona com a espiritualidade e o autoconhecimento?',
+          sub: 'Não há resposta certa — apenas sua verdade.',
+          options: [
+            'É parte central da minha vida e do meu desenvolvimento',
+            'Tenho interesse crescente e quero aprofundar',
+            'Sou cético(a) mas aberto(a) — os resultados me convencem',
+            'Busco integrar espiritualidade com praticidade no dia a dia',
+          ],
+        },
+      ];
+    }
+
+    function dadosAstraisFallback() {
+      const v = '?';
+      return {
+        sol_signo: v, sol_casa: v, sol_grau: v,
+        lua_signo: v, lua_casa: v, lua_grau: v,
+        ascendente: v, ascendente_grau: v,
+        mc_signo: v, mc_grau: v,
+        ic_signo: v, descendente_signo: v,
+        mercurio_signo: v, mercurio_casa: v, mercurio_retro: false,
+        venus_signo: v, venus_casa: v,
+        marte_signo: v, marte_casa: v,
+        jupiter_signo: v, jupiter_casa: v, jupiter_retro: false,
+        saturno_signo: v, saturno_casa: v, saturno_retro: false,
+        urano_signo: v, urano_casa: v, urano_retro: false,
+        netuno_signo: v, netuno_casa: v, netuno_retro: false,
+        plutao_signo: v, plutao_casa: v, plutao_retro: false,
+        nodo_norte_signo: v, nodo_norte_casa: v, nodo_sul_signo: v,
+        quiron_signo: v, quiron_casa: v, quiron_grau: v,
+        lilith_signo: v, lilith_casa: v,
+        parte_fortuna_signo: v, parte_fortuna_casa: v,
+        ceres_signo: v,  ceres_casa: v,
+        vesta_signo: v,  vesta_casa: v,
+        juno_signo: v,   juno_casa: v,
+        pallas_signo: v, pallas_casa: v,
+        asteroides: 'não disponível',
+        retrogrados: 'não calculado',
+        elemento_dominante: v, modalidade_dominante: v,
+        aspectos_relevantes: 'não disponível',
+        casas_signos: 'não disponível',
+        posicoes_completas: 'dados astrais não disponíveis nesta sessão',
+      };
     }
 
 
@@ -646,21 +918,13 @@
       const cidade   = answers['cidade_nasc'] || 'não informada';
       const intencao = answers['intencao']    || '';
 
-      const optLabels = [
-        'Sentimento sobre o caminho de vida',
-        'Área que pede transformação',
-        'Relação com padrões repetitivos',
-        'Expectativa com o mapa',
-        'Relação com espiritualidade',
-      ];
-
-      const respostas = STEPS
-        .filter(s => s.type === 'options')
-        .map((s, i) => {
-          const idx  = answers[i];
-          const resp = idx !== undefined ? s.options[idx] : 'não respondido';
-          return `${optLabels[i]}: ${resp}`;
-        }).join('\n');
+      // Monta respostas das perguntas dinâmicas
+      const respostas = STEPS_DINAMICAS.map((s, i) => {
+        const stepIndex = STEPS_DADOS.length + i;
+        const idx  = answers[stepIndex];
+        const resp = idx !== undefined ? s.options[idx] : 'não respondido';
+        return `${s.question}: ${resp}`;
+      }).join('\n');
 
       return { nomeCompleto, nome, data, hora, cidade, intencao, respostas };
     }
@@ -683,28 +947,89 @@ R6. Para numerologia: calcule o número somando todos os dígitos da data de nas
 ═══════════════════════════════════════════════`;
     }
 
-    function buildSystemIntro(nome, data, hora, cidade, intencao, respostas) {
-      return `Você é um guia de autoconhecimento e escritor espiritual de alto nível, especializado em Mapas de Propósito de Vida que combinam astrologia, numerologia e psicologia analítica (Carl Jung). Você escreve em português brasileiro.
+    function buildSystemIntro(nome, data, hora, cidade, intencao, respostas, numerologia, astral) {
+      const r = (bool) => bool ? ' ℞ (retrógrado)' : '';
 
-Seu estilo: tom acolhedor, provocativo, lírico e profundo — nunca genérico. Voz íntima e direta. Cada campo completamente preenchido com profundidade e orientação prática. Proibido: autoajuda rasa, clichês motivacionais.
+      return `Você é um astrólogo e guia de autoconhecimento especializado em Mapas de Propósito de Vida. Você escreve em português brasileiro com profundidade, precisão simbólica e voz lírica e íntima.
 
-DADOS DA PESSOA:
+Seu estilo: tom acolhedor, provocativo e profundo — nunca genérico. Cada campo completamente preenchido com análise real dos dados astrológicos fornecidos. Proibido: inventar posições planetárias, autoajuda rasa, clichês motivacionais.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DADOS PESSOAIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Nome: ${nome}
 Data de nascimento: ${data}
 Horário: ${hora}
 Cidade: ${cidade}
 ${intencao ? `Intenção declarada: ${intencao}` : ''}
 
-PERFIL DO QUESTIONÁRIO:
-${respostas}`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NUMEROLOGIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Número de Destino: ${numerologia.numero} — ${numerologia.nome}
+Cálculo passo a passo: ${numerologia.calculo}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MAPA NATAL COMPLETO (Swiss Ephemeris)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EIXOS FUNDAMENTAIS
+Sol:         ${astral.sol_signo} ${astral.sol_grau} — Casa ${astral.sol_casa}
+Lua:         ${astral.lua_signo} ${astral.lua_grau} — Casa ${astral.lua_casa}
+Ascendente:  ${astral.ascendente} ${astral.ascendente_grau}
+Meio do Céu: ${astral.mc_signo} ${astral.mc_grau}
+
+PLANETAS PESSOAIS
+Mercúrio: ${astral.mercurio_signo} — Casa ${astral.mercurio_casa}${r(astral.mercurio_retro)}
+Vênus:    ${astral.venus_signo} — Casa ${astral.venus_casa}
+Marte:    ${astral.marte_signo} — Casa ${astral.marte_casa}
+
+PLANETAS SOCIAIS
+Júpiter: ${astral.jupiter_signo} — Casa ${astral.jupiter_casa}${r(astral.jupiter_retro)}
+Saturno: ${astral.saturno_signo} — Casa ${astral.saturno_casa}${r(astral.saturno_retro)}
+
+PLANETAS TRANSPESSOAIS
+Urano:  ${astral.urano_signo} — Casa ${astral.urano_casa}${r(astral.urano_retro)}
+Netuno: ${astral.netuno_signo} — Casa ${astral.netuno_casa}${r(astral.netuno_retro)}
+Plutão: ${astral.plutao_signo} — Casa ${astral.plutao_casa}${r(astral.plutao_retro)}
+
+PONTOS KÁRMICOS E ESPECIAIS
+Nodo Norte:       ${astral.nodo_norte_signo} — Casa ${astral.nodo_norte_casa}
+Nodo Sul:         ${astral.nodo_sul_signo}
+Quíron:           ${astral.quiron_signo} ${astral.quiron_grau} — Casa ${astral.quiron_casa}
+Lilith:           ${astral.lilith_signo} — Casa ${astral.lilith_casa}
+Parte da Fortuna: ${astral.parte_fortuna_signo} — Casa ${astral.parte_fortuna_casa}
+
+ASTEROIDES (Ceres, Vesta, Juno, Pallas)
+${astral.asteroides}
+
+SÍNTESE DO MAPA
+Elemento dominante:   ${astral.elemento_dominante}
+Modalidade dominante: ${astral.modalidade_dominante}
+Planetas retrógrados: ${astral.retrogrados}
+
+ASPECTOS PRINCIPAIS
+${astral.aspectos_relevantes}
+
+CASAS E SEUS SIGNOS
+${astral.casas_signos}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PERFIL DO QUESTIONÁRIO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${respostas}
+
+INSTRUÇÃO CRÍTICA: Use os dados astrológicos e numerológicos acima como base concreta de toda a análise.
+Nunca invente posições planetárias. Nunca use dados genéricos.
+Cada interpretação deve partir dos dados reais acima — signo, casa e aspectos específicos desta pessoa.`;
     }
 
     /* ── BLOCO A — Págs 01 a 07 ──
        capa, introdução, conceito do mapa, numerologia (2 págs), astrologia (2 págs) */
-    function buildPromptA() {
+    function buildPromptA(numerologia, astral) {
       const { nomeCompleto, nome, data, hora, cidade, intencao, respostas } = buildContext();
 
-      return `${buildSystemIntro(nome, data, hora, cidade, intencao, respostas)}
+      return `${buildSystemIntro(nome, data, hora, cidade, intencao, respostas, numerologia, astral)}
 ${buildRules(nome)}
 
 Gere o BLOCO A do mapa — exatamente este JSON com todos os campos:
@@ -732,10 +1057,10 @@ Gere o BLOCO A do mapa — exatamente este JSON com todos os campos:
   ],
   "mapa_citacao": "[60–100 chars] Citação de impacto original para esta página",
 
-  "num_intro":      "[400–440 chars] Introdução à numerologia — o que é o número de caminho de vida e por que ele importa para você.",
-  "num_calculo":    "[280–320 chars] Como calcular o número de caminho de vida com a data ${data} — passo a passo direto.",
-  "num_pessoal":    "[400–440 chars] Número de caminho de vida calculado a partir de ${data} — significado profundo em segunda pessoa.",
-  "num_citacao_04": "[60–100 chars] Citação de impacto original para a página 04",
+  "num_intro":      "[400–440 chars] Introdução à numerologia — explique o que é o número de destino e por que o número ${numerologia.numero} (${numerologia.nome}) é significativo para esta jornada.",
+  "num_calculo":    "[280–320 chars] Mostre o cálculo real: ${numerologia.calculo} = Número ${numerologia.numero}. Explique o processo de forma clara e envolvente.",
+  "num_pessoal":    "[400–440 chars] Interpretação profunda do Número ${numerologia.numero} (${numerologia.nome}) aplicado à vida desta pessoa específica. Use os dados do questionário para personalizar. Voz direta em 'você'.",
+  "num_citacao_04": "[60–100 chars] Citação de impacto original sobre o número ${numerologia.numero}",
 
   "num_significados": [
     "[85–115 chars] Numero 1 - Pioneiro: liderança, iniciativa, o começo de todos os ciclos",
@@ -752,28 +1077,28 @@ Gere o BLOCO A do mapa — exatamente este JSON com todos os campos:
   ],
   "num_citacao_05": "[60–100 chars] Citação de impacto original para a página 05",
 
-  "astro_intro":      "[400–440 chars] Introdução à astrologia — não previsão, mas mapa de potencial. Voz em 'você'.",
-  "astro_sol":        "[400–440 chars] Seu Sol natal (baseado em ${data}) — essência, identidade e vocação. Fale diretamente: 'Seu Sol...', 'Você carrega...'",
-  "astro_citacao_06": "[60–100 chars] Citação de impacto original para a página 06",
+  "astro_intro":      "[400–440 chars] Introdução ao mapa natal desta pessoa — contextualize o perfil com elemento ${astral.elemento_dominante}, modalidade ${astral.modalidade_dominante}, Sol em ${astral.sol_signo} e Ascendente em ${astral.ascendente}. Voz em 'você'.",
+  "astro_sol":        "[400–440 chars] Interpretação do Sol em ${astral.sol_signo} (Casa ${astral.sol_casa}, ${astral.sol_grau}) — essência, identidade pública e vocação. O que este posicionamento revela sobre a missão. Voz direta: 'Seu Sol em ${astral.sol_signo}...'",
+  "astro_citacao_06": "[60–100 chars] Citação de impacto original sobre o Sol em ${astral.sol_signo}",
 
-  "astro_lua":        "[400–440 chars] Sua Lua natal — papel emocional e como suas emoções orientam o propósito. Voz direta: 'Sua Lua...', 'Você sente...'",
-  "astro_ascendente": "[400–440 chars] Seu Ascendente — como você se expressa e se apresenta ao mundo. Voz direta: 'Seu Ascendente...', 'Você foi projetado...'",
-  "astro_citacao_07": "[60–100 chars] Citação de impacto original para a página 07"
+  "astro_lua":        "[400–440 chars] Interpretação da Lua em ${astral.lua_signo} (Casa ${astral.lua_casa}, ${astral.lua_grau}) — mundo emocional, necessidades profundas e como orienta o propósito. Voz: 'Sua Lua em ${astral.lua_signo}...'",
+  "astro_ascendente": "[400–440 chars] Interpretação do Ascendente em ${astral.ascendente} e Meio do Céu em ${astral.mc_signo} — máscara social, vocação pública e como a missão se expressa no mundo. Voz: 'Seu Ascendente em ${astral.ascendente}...'",
+  "astro_citacao_07": "[60–100 chars] Citação de impacto original sobre o Ascendente em ${astral.ascendente}"
 }`;
     }
 
     /* ── BLOCO B — Págs 08 a 15 ──
        arquétipos (2 págs), luz e sombra (2 págs), alinhamento (2 págs), exercício, fechamento */
-    function buildPromptB() {
+    function buildPromptB(numerologia, astral) {
       const { nomeCompleto, nome, data, hora, cidade, intencao, respostas } = buildContext();
 
-      return `${buildSystemIntro(nome, data, hora, cidade, intencao, respostas)}
+      return `${buildSystemIntro(nome, data, hora, cidade, intencao, respostas, numerologia, astral)}
 ${buildRules(nome)}
 
 Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
 
 {
-  "arq_conceito": "[400–440 chars] O que são arquétipos segundo Jung — forças que operam em você. Voz em 'você': 'Em você operam...', 'Você carrega...'",
+  "arq_conceito": "[400–440 chars] O que são arquétipos segundo Jung — forças que operam em você. Conecte com o elemento ${astral.elemento_dominante} dominante no seu mapa. Voz em 'você'.",
   "arq_lista": [
     "[85–115 chars] Heroi - supera obstáculos, transforma desafios em crescimento e poder",
     "[85–115 chars] Sabio - busca verdade, orienta através do conhecimento e discernimento",
@@ -785,53 +1110,409 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
   ],
   "arq_citacao_08": "[60–100 chars] Citação de impacto original para a página 08",
 
-  "arq_dominantes": "[400–440 chars] Os arquétipos dominantes identificados no seu perfil — quais forças internas pedem expressão em você agora. Voz direta.",
-  "arq_orientacao": "[400–440 chars] Como trabalhar com seus arquétipos no dia a dia — orientação prática e transformadora. Fale em segunda pessoa.",
+  "arq_dominantes": "[400–440 chars] Arquétipos dominantes — conecte com Sol em ${astral.sol_signo}, Ascendente em ${astral.ascendente} e Nodo Norte em ${astral.nodo_norte_signo} (Casa ${astral.nodo_norte_casa}). Qual força pede expressão agora. Voz direta.",
+  "arq_orientacao": "[400–440 chars] Como trabalhar com seus arquétipos — conecte com número ${numerologia.numero} (${numerologia.nome}), Vênus em ${astral.venus_signo} (Casa ${astral.venus_casa}) e modalidade ${astral.modalidade_dominante}. Fale em segunda pessoa.",
   "arq_citacao_09": "[60–100 chars] Citação de impacto original para a página 09",
 
-  "sombra_talentos":    "[400–440 chars] Seus talentos naturais revelados pelo perfil — o que flui com facilidade e precisa ser honrado. Voz direta: 'Você possui...', 'Seu talento...'",
-  "sombra_sabotadores": "[400–440 chars] Seus padrões sabotadores — comportamentos inconscientes que bloqueiam seu propósito. Voz direta em 'você'.",
+  "sombra_talentos":    "[400–440 chars] Seus talentos naturais — Sol em ${astral.sol_signo}, Lua em ${astral.lua_signo} e Júpiter em ${astral.jupiter_signo} (Casa ${astral.jupiter_casa}). Ceres em ${astral.ceres_signo} fala da vocação nutridora. O que flui com facilidade. Voz direta.",
+  "sombra_sabotadores": "[400–440 chars] Seus padrões sabotadores — Saturno em ${astral.saturno_signo} (Casa ${astral.saturno_casa})${astral.saturno_retro ? ' retrógrado' : ''} e Quíron em ${astral.quiron_signo} (Casa ${astral.quiron_casa}) revelam a ferida e a resistência. Retrógrados: ${astral.retrogrados}. Voz direta.",
   "sombra_citacao_10":  "[60–100 chars] Citação de impacto original para a página 10",
 
-  "sombra_conceito":    "[400–440 chars] O que é a sombra junguiana em você — o que foi negado e como se manifesta. Voz íntima em segunda pessoa.",
-  "sombra_integracao":  "[400–440 chars] Como integrar sua sombra — o processo de reconhecimento, aceitação e transmutação. Guie com 'você'.",
-  "sombra_pratica":     "[280–320 chars] Exercício rápido de encontro com a sombra — uma pergunta poderosa e convite à escrita.",
+  "sombra_conceito":    "[400–440 chars] A sombra junguiana — analise Lilith em ${astral.lilith_signo} (Casa ${astral.lilith_casa}) e Plutão em ${astral.plutao_signo} (Casa ${astral.plutao_casa}). O que foi reprimido e como se manifesta como bloqueio. Voz íntima.",
+  "sombra_integracao":  "[400–440 chars] Como integrar a sombra — Quíron em ${astral.quiron_signo} como ferida que vira dom. Vesta em ${astral.vesta_signo} como dedicação sagrada que foi negada. O processo de reconhecimento e transmutação. Guie com 'você'.",
+  "sombra_pratica":     "[280–320 chars] Exercício de encontro com a sombra — uma pergunta poderosa baseada em Lilith em ${astral.lilith_signo} e convite à escrita reflexiva.",
   "sombra_citacao_11":  "[60–100 chars] Citação de impacto original para a página 11",
 
-  "alinha_intro": "[400–440 chars] Como o propósito se manifesta nas suas escolhas cotidianas — não é uma chegada, é um direcionamento. Voz em 'você'.",
+  "alinha_intro": "[400–440 chars] Como o propósito se manifesta nas escolhas cotidianas — Marte em ${astral.marte_signo} (Casa ${astral.marte_casa}) como força de ação, Nodo Norte em ${astral.nodo_norte_signo} (Casa ${astral.nodo_norte_casa}) como direção, Nodo Sul em ${astral.nodo_sul_signo} como padrão a superar. Voz em 'você'.",
   "alinha_passos": [
-    "[85–115 chars] Passo 1 - Observe seus picos de energia: quando você perde a noção do tempo?",
-    "[85–115 chars] Passo 2 - Mapeie suas contribuições: o que você faz que outros acham difícil?",
-    "[85–115 chars] Passo 3 - Identifique seu impacto: onde sua presença já faz diferença?",
-    "[85–115 chars] Passo 4 - Alinhe suas decisões: cada escolha aponta para ou contra seu propósito."
+    "[85–115 chars] Passo personalizado 1 — baseado em Marte em ${astral.marte_signo}: sua forma específica de agir",
+    "[85–115 chars] Passo personalizado 2 — baseado no Nodo Norte em ${astral.nodo_norte_signo}: sua direção evolutiva",
+    "[85–115 chars] Passo personalizado 3 — baseado em Júpiter em ${astral.jupiter_signo}: sua expansão natural",
+    "[85–115 chars] Passo personalizado 4 — baseado no número ${numerologia.numero} (${numerologia.nome}): seu ritmo essencial"
   ],
   "alinha_citacao_12": "[60–100 chars] Citação de impacto original para a página 12",
 
   "alinha_perguntas": [
-    "[85–115 chars] Que versão de mim eu traio quando escolho o caminho mais seguro?",
-    "[85–115 chars] O que eu faria se soubesse que não posso falhar de forma alguma?",
-    "[85–115 chars] Qual é o maior presente genuíno que tenho a oferecer ao mundo?",
-    "[85–115 chars] O que ainda não vivi porque temo que seja grande demais para mim?"
+    "[85–115 chars] Pergunta sobre Nodo Sul em ${astral.nodo_sul_signo} — o padrão do passado que você repete",
+    "[85–115 chars] Pergunta sobre Nodo Norte em ${astral.nodo_norte_signo} — o crescimento que você evita",
+    "[85–115 chars] Pergunta sobre Quíron em ${astral.quiron_signo} — a ferida que é também seu maior dom",
+    "[85–115 chars] Pergunta integradora conectando número ${numerologia.numero} com o Ascendente ${astral.ascendente}"
   ],
-  "alinha_personalizadas": "[400–440 chars] Perguntas de autoinvestigação específicas para você baseadas no seu perfil — voz direta, íntima, provocativa.",
+  "alinha_personalizadas": "[400–440 chars] Perguntas de autoinvestigação específicas para você — conecte Juno em ${astral.juno_signo} (parcerias), Pallas em ${astral.pallas_signo} (sabedoria estratégica) e a Casa ${astral.nodo_norte_casa} onde está o Nodo Norte. Voz direta e provocativa.",
   "alinha_citacao_13":     "[60–100 chars] Citação de impacto original para a página 13",
 
-  "exercicio_intro":    "[280–320 chars] Convite ao exercício — direto para você, não para ser lido mas vivido.",
-  "exercicio_etapa_1":  "[280–320 chars] Etapa 1 — Seus talentos: o que você faz com facilidade que outros acham difícil?",
-  "exercicio_etapa_2":  "[280–320 chars] Etapa 2 — O que te energiza: quando você perde a noção do tempo?",
-  "exercicio_etapa_3":  "[280–320 chars] Etapa 3 — O que o mundo pede de você: onde sua presença já faz diferença?",
-  "exercicio_reflexao": "[280–320 chars] Convite à integração — instrução para você unir as três etapas em uma frase de propósito.",
+  "exercicio_intro":    "[280–320 chars] Convite ao exercício — direto para você, não para ser lido mas vivido. Mencione o elemento ${astral.elemento_dominante} que rege seu mapa.",
+  "exercicio_etapa_1":  "[280–320 chars] Etapa 1 — Seus talentos: baseado em Sol em ${astral.sol_signo} e Ceres em ${astral.ceres_signo}, o que você faz com facilidade que outros acham difícil?",
+  "exercicio_etapa_2":  "[280–320 chars] Etapa 2 — O que te energiza: baseado em Lua em ${astral.lua_signo} e Vesta em ${astral.vesta_signo}, quando você perde a noção do tempo e se sente inteiro?",
+  "exercicio_etapa_3":  "[280–320 chars] Etapa 3 — O que o mundo pede: baseado em Nodo Norte em ${astral.nodo_norte_signo} (Casa ${astral.nodo_norte_casa}), onde sua presença já faz diferença sem esforço?",
+  "exercicio_reflexao": "[280–320 chars] Convite à integração — instrução para unir as três etapas em uma frase de propósito usando a linguagem do número ${numerologia.numero} (${numerologia.nome}).",
   "exercicio_citacao":  "[60–100 chars] Citação de impacto original para esta página",
 
-  "fecha_sintese":     "[400–440 chars] Integração — o fio que une tudo que foi revelado sobre você. Voz direta: 'Você carrega...', 'Seu mapa revela...'",
-  "fecha_convite":     "[400–440 chars] Convite à ação consciente — não à perfeição, mas ao seu primeiro passo real. Fale diretamente com quem lê.",
-  "fecha_compromisso": "[280–320 chars] Compromisso em primeira pessoa — declaração que você pode fazer consigo mesmo agora.",
+  "fecha_sintese":     "[400–440 chars] Integração total — sintetize Sol em ${astral.sol_signo}, Lua em ${astral.lua_signo}, Ascendente em ${astral.ascendente}, MC em ${astral.mc_signo}, número ${numerologia.numero} (${numerologia.nome}) e Nodo Norte em ${astral.nodo_norte_signo}. O fio condutor único e insubstituível desta pessoa. Voz direta.",
+  "fecha_convite":     "[400–440 chars] Convite à ação consciente — conecte com Marte em ${astral.marte_signo} como energia de ação e Júpiter em ${astral.jupiter_signo} como portal de expansão. Primeiro passo real. Fale diretamente com quem lê.",
+  "fecha_compromisso": "[280–320 chars] Compromisso em primeira pessoa — declaração que integra o número ${numerologia.numero} e o Ascendente ${astral.ascendente}. Você pode fazer consigo mesmo agora.",
   "fecha_frase_final": "[60–95 chars] Frase final oracular — tom: centrado, poderoso, inevitável. Em segunda pessoa.",
   "fecha_citacao":     "[60–100 chars] Citação de encerramento — a última impressão que você carrega ao fechar o mapa"
 }`;
     }
 
 
+
+    /* ═══════════════════════════════════════════════════════════
+       NUMEROLOGIA — calculada localmente, sem API
+       Reduz todos os dígitos da data até número de 1 dígito
+       (exceto números mestres 11 e 22 que são preservados)
+    ═══════════════════════════════════════════════════════════ */
+    function calcularNumerologia(dateStr) {
+      if (!dateStr) return { numero: null, calculo: '' };
+
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const digits = String(day) + String(month) + String(year);
+      let soma = digits.split('').reduce((acc, d) => acc + parseInt(d), 0);
+      let steps = `${digits.split('').join('+')} = ${soma}`;
+
+      // Reduz preservando 11 e 22
+      while (soma > 9 && soma !== 11 && soma !== 22) {
+        const prev = soma;
+        soma = String(soma).split('').reduce((acc, d) => acc + parseInt(d), 0);
+        steps += ` → ${soma}`;
+      }
+
+      const nomes = {
+        1: 'Pioneiro', 2: 'Mediador', 3: 'Criador', 4: 'Construtor',
+        5: 'Explorador', 6: 'Guardião', 7: 'Sábio', 8: 'Realizador',
+        9: 'Humanitário', 11: 'Visionário', 22: 'Arquiteto Mestre',
+      };
+
+      return {
+        numero:   soma,
+        nome:     nomes[soma] || 'Desconhecido',
+        calculo:  steps,
+      };
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       APIS DE ASTROLOGIA
+       ───────────────────────────────────────────────────────────
+       Fonte principal: freeastrologyapi.com (nova — mais completa)
+         1. geo-details      → cidade → lat, lng, timezone
+         2. western/planets  → 22 corpos celestes
+         3. western/houses   → 12 casas (Placidus)
+         4. western/aspects  → todos os aspectos entre planetas
+       Fallback: freeastroapi.com (aceita cidade direta)
+    ═══════════════════════════════════════════════════════════ */
+    const ASTRO_API_KEY     = '1ef0a733f3bd6bae38a0fb1280021670c42936841ec7bfb4bbc245e0e43eafc4'; // freeastroapi.com
+    const VEDIC_API_KEY     = 'gYdHB7T7qdgarLs3AO2F9X60cqXUCSF3H42Cqddh';                      // freeastrologyapi.com
+    const VEDIC_BASE        = 'https://json.freeastrologyapi.com';
+
+    // ── Helper: POST para a freeastrologyapi.com
+    async function vedicPost(endpoint, body) {
+      const res = await fetch(`${VEDIC_BASE}/${endpoint}`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': VEDIC_API_KEY },
+        body:    JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(`${endpoint} HTTP ${res.status}`);
+      return res.json();
+    }
+
+    async function buscarDadosAstrais() {
+      const dateStr = answers['data_nasc'];
+      const hora    = answers['hora_nasc'] || '12:00';
+      const cidade  = answers['cidade_nasc'] || 'São Paulo, Brasil';
+
+      if (!dateStr) throw new Error('Data de nascimento não informada');
+
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const [hour, minute]     = hora.split(':').map(Number);
+
+      console.group('%c🌍 Buscando dados astrais completos', 'color:#C9A84C;font-weight:bold');
+
+      // ── ETAPA 1: Geo Location → lat, lng, timezone
+      console.log('1/4 → geo-details:', cidade);
+      let latitude, longitude, timezone;
+      try {
+        const geo = await vedicPost('geo-details', { location: cidade });
+        const loc = Array.isArray(geo) ? geo[0] : geo;
+        latitude  = loc.latitude;
+        longitude = loc.longitude;
+        timezone  = loc.timezone_offset;
+        console.log('✅ Geo:', { latitude, longitude, timezone, nome: loc.complete_name });
+      } catch (geoErr) {
+        console.warn('⚠️ geo-details falhou, usando fallback -23.55/-46.63 (SP):', geoErr.message);
+        latitude  = -23.5505;
+        longitude = -46.6333;
+        timezone  = -3;
+      }
+
+      // ── Payload base compartilhado pelos 3 endpoints astrais
+      const basePayload = {
+        year, month, date: day,
+        hours: hour, minutes: minute, seconds: 0,
+        latitude, longitude, timezone,
+        config: {
+          observation_point: 'topocentric',
+          ayanamsha:         'tropical',
+          language:          'en',
+        },
+      };
+
+      // ── ETAPAS 2, 3 e 4: Planets + Houses + Aspects em paralelo
+      console.log('2-4/4 → planets + houses + aspects (paralelo)');
+      const [planetsRes, housesRes, aspectsRes] = await Promise.allSettled([
+        vedicPost('western/planets', basePayload),
+        vedicPost('western/houses',  { ...basePayload, config: { ...basePayload.config, house_system: 'Placidus' } }),
+        vedicPost('western/aspects', {
+          ...basePayload,
+          config: {
+            ...basePayload.config,
+            exclude_planets: ['Ceres','Vesta','Juno','Pallas','Descendant','IC'],
+            allowed_aspects: ['Conjunction','Opposition','Trine','Square','Sextile','Quincunx'],
+            orb_values: { Conjunction: 8, Opposition: 8, Trine: 7, Square: 7, Sextile: 6, Quincunx: 3 },
+          },
+        }),
+      ]);
+
+      const planetsData = planetsRes.status === 'fulfilled' ? planetsRes.value : null;
+      const housesData  = housesRes.status  === 'fulfilled' ? housesRes.value  : null;
+      const aspectsData = aspectsRes.status === 'fulfilled' ? aspectsRes.value : null;
+
+      console.log('Planets:', planetsRes.status, planetsData?.output?.length ?? '—', 'corpos');
+      console.log('Houses:', housesRes.status, housesData?.output?.Houses?.length ?? '—', 'casas');
+      console.log('Aspects:', aspectsRes.status, aspectsData?.output?.length ?? '—', 'aspectos');
+      console.groupEnd();
+
+      // Se planets falhou completamente, tenta fallback
+      if (!planetsData) {
+        console.warn('Planets falhou — tentando freeastroapi.com como fallback');
+        return buscarDadosAstrasFallbackAPI(year, month, day, hour, minute, cidade);
+      }
+
+      return interpretarDadosAstrais({ planetsData, housesData, aspectsData });
+    }
+
+    // ── Fallback: freeastroapi.com (aceita cidade direta)
+    async function buscarDadosAstrasFallbackAPI(year, month, day, hour, minute, cidade) {
+      const res = await fetch('https://api.freeastroapi.com/api/v1/natal/calculate', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': ASTRO_API_KEY },
+        body: JSON.stringify({ name: answers['nome'] || 'Pessoa', year, month, day, hour, minute, city: cidade, tz_str: 'AUTO' }),
+      });
+      if (!res.ok) throw new Error(`Fallback API erro ${res.status}`);
+      const raw = await res.json();
+      // Adapta para o formato esperado por interpretarDadosAstrais
+      return interpretarDadosAstrais({ planetsData: raw, housesData: null, aspectsData: null });
+    }
+
+    function interpretarDadosAstrais({ planetsData, housesData, aspectsData }) {
+      // ── Normaliza planets — freeastrologyapi.com retorna { output: [...] }
+      //    freeastroapi.com retorna { planets: [...] } ou array direto
+      let rawPlanets = [];
+      if (planetsData?.output)           rawPlanets = planetsData.output;          // nova API
+      else if (planetsData?.planets)     rawPlanets = planetsData.planets;         // freeastroapi
+      else if (Array.isArray(planetsData)) rawPlanets = planetsData;               // array direto
+      else if (planetsData?.data?.planets) rawPlanets = planetsData.data.planets;
+
+      // ── Normaliza houses
+      let rawHouses = [];
+      if (housesData?.output?.Houses)    rawHouses = housesData.output.Houses;     // nova API
+      else if (housesData?.houses)       rawHouses = housesData.houses;
+      else if (housesData?.output)       rawHouses = housesData.output;
+
+      // ── Normaliza aspects
+      let rawAspects = [];
+      if (aspectsData?.output)           rawAspects = aspectsData.output;          // nova API
+      else if (aspectsData?.aspects)     rawAspects = aspectsData.aspects;
+
+      // ── Helper: extrai nome do planeta — nova API usa { planet: { en: "Sun" } }
+      const pName = (p) => {
+        if (typeof p.planet === 'object') return p.planet.en || '';
+        return p.name || p.planet || p.body || '';
+      };
+
+      // ── Helper: extrai signo — nova API usa { zodiac_sign: { name: { en: "Aries" } } }
+      const pSigno = (p) => {
+        if (p?.zodiac_sign?.name?.en) return p.zodiac_sign.name.en;
+        return p?.sign || p?.zodiac_sign || p?.rasi || '?';
+      };
+
+      // ── Helper: extrai grau normalizado
+      const pGrau = (p) => {
+        const g = p?.normDegree ?? p?.norm_degree ?? p?.degree;
+        return g != null ? `${parseFloat(g).toFixed(1)}°` : '?';
+      };
+
+      // ── Helper: retrógrado
+      const pRetro = (p) =>
+        p?.isRetro === 'True' || p?.isRetro === true ||
+        p?.is_retro === 'true' || p?.retrograde === true;
+
+      // ── Helper: busca planeta por nome parcial
+      const P = (name) => rawPlanets.find(p =>
+        pName(p).toLowerCase().includes(name.toLowerCase())
+      );
+
+      // ── Helper: casa de um planeta — nova API não retorna casa nos planets
+      //    então buscamos nas houses pelo grau do planeta
+      const housesMap = {};
+      rawHouses.forEach(h => {
+        const hNum = h.House || h.house_id || h.house || h.number;
+        housesMap[hNum] = h;
+      });
+
+      const pCasa = (p) => {
+        if (p?.house || p?.house_number) return p.house || p.house_number;
+        // Calcula casa pelo fullDegree do planeta vs cúspides
+        const fd = p?.fullDegree ?? p?.full_degree;
+        if (fd == null || rawHouses.length === 0) return '?';
+        for (let i = 0; i < rawHouses.length; i++) {
+          const h     = rawHouses[i];
+          const hNext = rawHouses[(i + 1) % rawHouses.length];
+          const start = h.degree ?? h.start_degree ?? 0;
+          const end   = hNext.degree ?? hNext.start_degree ?? 0;
+          const norm  = ((fd % 360) + 360) % 360;
+          if (start <= end ? (norm >= start && norm < end) : (norm >= start || norm < end)) {
+            return h.House || h.house_id || h.house || i + 1;
+          }
+        }
+        return '?';
+      };
+
+      // ── Extrai cada corpo celeste
+      const sol      = P('Sun');
+      const lua      = P('Moon');
+      const mercurio = P('Mercury');
+      const venus    = P('Venus');
+      const marte    = P('Mars');
+      const jupiter  = P('Jupiter');
+      const saturno  = P('Saturn');
+      const urano    = P('Uranus');
+      const netuno   = P('Neptune');
+      const plutao   = P('Pluto');
+      const quiron   = P('Chiron');
+      const lilith   = P('Lilith');
+      const nodoN    = P('True Node') || P('Mean Node');
+      const nodoS    = P('South');
+      const fortuna  = P('Fortune');
+      const ceres    = P('Ceres');
+      const vesta    = P('Vesta');
+      const juno     = P('Juno');
+      const pallas   = P('Pallas');
+      const asc      = P('Ascendant');
+      const mc       = P('MC');
+      const desc     = P('Descendant');
+      const ic       = P('IC');
+
+      // ── Ascendente e MC via campo direto ou busca
+      const ascSigno = pSigno(asc) !== '?' ? pSigno(asc)
+        : (rawHouses[0] ? (rawHouses[0].zodiac_sign?.name?.en || rawHouses[0].sign || '?') : '?');
+      const ascGrau  = pGrau(asc) !== '?' ? pGrau(asc)
+        : (rawHouses[0] ? `${parseFloat(rawHouses[0].normDegree ?? rawHouses[0].degree ?? 0).toFixed(1)}°` : '?');
+      const mcSigno  = pSigno(mc) !== '?' ? pSigno(mc)
+        : (rawHouses[9] ? (rawHouses[9].zodiac_sign?.name?.en || rawHouses[9].sign || '?') : '?');
+      const mcGrau   = pGrau(mc) !== '?' ? pGrau(mc)
+        : (rawHouses[9] ? `${parseFloat(rawHouses[9].normDegree ?? rawHouses[9].degree ?? 0).toFixed(1)}°` : '?');
+
+      // ── Planetas retrógrados
+      const retrogrados = rawPlanets
+        .filter(p => pRetro(p) && !['Ascendant','Descendant','MC','IC'].includes(pName(p)))
+        .map(pName).filter(Boolean).join(', ') || 'nenhum';
+
+      // ── Elemento dominante
+      const signoEl = {
+        Aries:'Fogo',Taurus:'Terra',Gemini:'Ar',Cancer:'Água',
+        Leo:'Fogo',Virgo:'Terra',Libra:'Ar',Scorpio:'Água',
+        Sagittarius:'Fogo',Capricorn:'Terra',Aquarius:'Ar',Pisces:'Água',
+      };
+      const elCount = {Fogo:0,Terra:0,Ar:0,'Água':0};
+      rawPlanets.forEach(p => { const e = signoEl[pSigno(p)]; if(e) elCount[e]++; });
+      const elemento_dominante = Object.entries(elCount).sort((a,b)=>b[1]-a[1])[0]?.[0] || '?';
+
+      // ── Modalidade dominante
+      const signoMod = {
+        Aries:'Cardinal',Cancer:'Cardinal',Libra:'Cardinal',Capricorn:'Cardinal',
+        Taurus:'Fixo',Leo:'Fixo',Scorpio:'Fixo',Aquarius:'Fixo',
+        Gemini:'Mutável',Virgo:'Mutável',Sagittarius:'Mutável',Pisces:'Mutável',
+      };
+      const modCount = {Cardinal:0,Fixo:0,'Mutável':0};
+      rawPlanets.forEach(p => { const m = signoMod[pSigno(p)]; if(m) modCount[m]++; });
+      const modalidade_dominante = Object.entries(modCount).sort((a,b)=>b[1]-a[1])[0]?.[0] || '?';
+
+      // ── Aspectos relevantes — nova API retorna { planet1:{en}, planet2:{en}, type, orb }
+      const aspectosRelevantes = rawAspects.slice(0, 10).map(a => {
+        const p1  = typeof a.planet1 === 'object' ? (a.planet1.en || '?') : (a.planet1 || '?');
+        const p2  = typeof a.planet2 === 'object' ? (a.planet2.en || '?') : (a.planet2 || '?');
+        const tip = a.type || a.aspect_type || a.aspect || '?';
+        const orb = a.orb != null ? ` (${parseFloat(a.orb).toFixed(1)}°)` : '';
+        return `${p1} ${tip} ${p2}${orb}`;
+      }).join('\n') || 'não disponível';
+
+      // ── Casas com signo (da nova API houses)
+      const casasSignos = rawHouses.map(h => {
+        const num = h.House || h.house_id || h.house;
+        const sig = h.zodiac_sign?.name?.en || h.sign || '?';
+        const grau = h.normDegree != null ? ` ${parseFloat(h.normDegree).toFixed(1)}°` : '';
+        return `Casa ${num}: ${sig}${grau}`;
+      }).join('\n') || 'não disponível';
+
+      // ── Asteroides (bônus da nova API)
+      const asteroides = [ceres, vesta, juno, pallas]
+        .filter(Boolean)
+        .map(p => `${pName(p)}: ${pSigno(p)} ${pGrau(p)}`)
+        .join(' · ') || 'não disponível';
+
+      // ── Posições completas
+      const posicoes_completas = rawPlanets
+        .filter(p => !['Descendant','IC'].includes(pName(p)))
+        .map(p => {
+          const nm = pName(p);
+          const sg = pSigno(p);
+          const gr = pGrau(p);
+          const cs = pCasa(p);
+          const rt = pRetro(p) ? ' ℞' : '';
+          return `${nm}: ${sg} ${gr}, Casa ${cs}${rt}`;
+        }).join('\n');
+
+      return {
+        // Trindade principal
+        sol_signo: pSigno(sol),   sol_casa: pCasa(sol),   sol_grau: pGrau(sol),
+        lua_signo: pSigno(lua),   lua_casa: pCasa(lua),   lua_grau: pGrau(lua),
+        ascendente: ascSigno,     ascendente_grau: ascGrau,
+        // Meio do Céu
+        mc_signo: mcSigno,        mc_grau: mcGrau,
+        ic_signo: pSigno(ic),
+        descendente_signo: pSigno(desc),
+        // Planetas pessoais
+        mercurio_signo: pSigno(mercurio), mercurio_casa: pCasa(mercurio), mercurio_retro: pRetro(mercurio),
+        venus_signo:    pSigno(venus),    venus_casa:    pCasa(venus),
+        marte_signo:    pSigno(marte),    marte_casa:    pCasa(marte),
+        // Planetas sociais
+        jupiter_signo: pSigno(jupiter), jupiter_casa: pCasa(jupiter), jupiter_retro: pRetro(jupiter),
+        saturno_signo: pSigno(saturno), saturno_casa: pCasa(saturno), saturno_retro: pRetro(saturno),
+        // Transpessoais
+        urano_signo:  pSigno(urano),  urano_casa:  pCasa(urano),  urano_retro:  pRetro(urano),
+        netuno_signo: pSigno(netuno), netuno_casa: pCasa(netuno), netuno_retro: pRetro(netuno),
+        plutao_signo: pSigno(plutao), plutao_casa: pCasa(plutao), plutao_retro: pRetro(plutao),
+        // Pontos kármicos
+        nodo_norte_signo: pSigno(nodoN), nodo_norte_casa: pCasa(nodoN),
+        nodo_sul_signo:   pSigno(nodoS) !== '?' ? pSigno(nodoS) : '(oposto ao Nodo Norte)',
+        quiron_signo: pSigno(quiron), quiron_casa: pCasa(quiron), quiron_grau: pGrau(quiron),
+        lilith_signo: pSigno(lilith), lilith_casa: pCasa(lilith),
+        parte_fortuna_signo: pSigno(fortuna), parte_fortuna_casa: pCasa(fortuna),
+        // Asteroides (exclusivos da nova API)
+        ceres_signo:  pSigno(ceres),  ceres_casa:  pCasa(ceres),
+        vesta_signo:  pSigno(vesta),  vesta_casa:  pCasa(vesta),
+        juno_signo:   pSigno(juno),   juno_casa:   pCasa(juno),
+        pallas_signo: pSigno(pallas), pallas_casa: pCasa(pallas),
+        asteroides,
+        // Sínteses
+        retrogrados, elemento_dominante, modalidade_dominante,
+        // Detalhes
+        aspectos_relevantes: aspectosRelevantes,
+        casas_signos:        casasSignos,
+        posicoes_completas,
+      };
+    }
 
     /* ═══════════════════════════════════════════════════════════
        GERAÇÃO — 2 chamadas paralelas para garantir JSON completo
@@ -885,13 +1566,20 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
       });
 
       try {
-        // Duas chamadas paralelas — cada uma com ~2000 tokens de saída
+        // Numerologia e dados astrais já foram calculados na Fase 1
+        // Reutiliza os caches — não busca de novo
+        const numerologia = numerologiaCache || calcularNumerologia(answers['data_nasc']);
+        const astral      = astralCache      || dadosAstraisFallback();
+
+        console.log('%c🔢 Numerologia:', 'color:#C9A84C', numerologia);
+        console.log('%c🌟 Dados astrais:', 'color:#C9A84C', astral);
+
+        // ── Etapa 3: Gerar conteúdo com Claude usando os dados reais
         const [blocoA, blocoB] = await Promise.all([
-          callAPI(buildPromptA()),
-          callAPI(buildPromptB()),
+          callAPI(buildPromptA(numerologia, astral)),
+          callAPI(buildPromptB(numerologia, astral)),
         ]);
 
-        // Mescla os dois blocos em um único objeto
         mapaData = { ...blocoA, ...blocoB };
         console.log('%c✅ Mapa gerado com sucesso. Campos:', 'color:green', Object.keys(mapaData).length);
 
