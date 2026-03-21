@@ -1217,9 +1217,11 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
     }
 
     async function buscarDadosAstrais() {
-      const dateStr = answers['data_nasc'];
-      const hora    = answers['hora_nasc'] || '12:00';
-      const cidade  = answers['cidade_nasc'] || 'São Paulo, Brasil';
+      const dateStr   = answers['data_nasc'];
+      const hora      = answers['hora_nasc'] || '12:00';
+      const cidadeRaw = answers['cidade_nasc'] || 'São Paulo';
+      // Limpa cidade: "São Paulo, SP, Brasil" → "São Paulo"
+      const cidade    = cidadeRaw.split(',')[0].trim();
 
       if (!dateStr) throw new Error('Data de nascimento não informada');
 
@@ -1227,44 +1229,48 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
       const [hour, minute]     = hora.split(':').map(Number);
 
       console.group('%c🌍 Buscando dados astrais', 'color:#C9A84C;font-weight:bold');
+      console.log('Cidade para geo:', cidade, '| Data:', year, month, day, '| Hora:', hour, minute);
 
-      // ── ETAPA 1: Geo Location
-      let latitude  = -23.5505;  // fallback SP
+      // ── ETAPA 1: Geo Location — começa com fallback SP
+      let latitude  = -23.5505;
       let longitude = -46.6333;
       let timezone  = -3;
 
       try {
         console.log('1/4 → geo-details:', cidade);
         const geoRaw = await vedicPost('geo-details', { location: cidade });
-        console.log('geo resposta bruta:', JSON.stringify(geoRaw).slice(0, 300));
+        console.log('geo resposta completa:', JSON.stringify(geoRaw));
 
-        // API retorna array direto: [{latitude, longitude, timezone_offset, ...}]
-        const arr = Array.isArray(geoRaw) ? geoRaw : [];
-        const loc = arr[0];
+        // A API retorna ARRAY: [{latitude, longitude, timezone_offset, ...}]
+        let loc = null;
+        if (Array.isArray(geoRaw) && geoRaw.length > 0) {
+          loc = geoRaw[0];
+        } else if (geoRaw && typeof geoRaw === 'object' && geoRaw.latitude != null) {
+          loc = geoRaw;
+        }
 
         if (loc && loc.latitude != null && loc.longitude != null) {
           latitude  = parseFloat(loc.latitude);
           longitude = parseFloat(loc.longitude);
           timezone  = parseFloat(loc.timezone_offset ?? loc.timezone ?? -3);
-          console.log('✅ Geo OK:', latitude, longitude, timezone, '|', loc.complete_name);
+          console.log('✅ Geo OK:', latitude, longitude, 'tz:', timezone, '|', loc.complete_name || cidade);
         } else {
-          console.warn('⚠️ Geo sem coords — usando fallback SP. Resposta:', geoRaw);
+          console.warn('⚠️ Geo sem coordenadas — usando SP. Resposta recebida:', JSON.stringify(geoRaw));
         }
       } catch (e) {
-        console.warn('⚠️ geo-details erro — usando fallback SP:', e.message);
+        console.warn('⚠️ geo-details falhou — usando SP:', e.message);
       }
 
-      // ── Payload base (campos na raiz conforme documentação)
+      // ── Payload base
       const base = {
         year, month, date: day,
         hours: hour, minutes: minute, seconds: 0,
         latitude, longitude, timezone,
         config: { observation_point: 'topocentric', ayanamsha: 'tropical', language: 'en' },
       };
+      console.log('Payload APIs astrais:', JSON.stringify(base));
 
-      console.log('Payload base:', JSON.stringify(base));
-
-      // ── ETAPAS 2-4: sequencial com delay para respeitar rate limit
+      // ── ETAPAS 2-4: sequencial com delay para evitar 429
       let planetsData = null, housesData = null, aspectsData = null;
 
       try {
@@ -1273,7 +1279,7 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
         console.log('✅ Planets:', planetsData?.output?.length, 'corpos');
       } catch(e) { console.warn('⚠️ planets:', e.message); }
 
-      await sleep(500);
+      await sleep(700);
 
       try {
         console.log('3/4 → western/houses');
@@ -1283,7 +1289,7 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
         console.log('✅ Houses:', housesData?.output?.Houses?.length, 'casas');
       } catch(e) { console.warn('⚠️ houses:', e.message); }
 
-      await sleep(500);
+      await sleep(700);
 
       try {
         console.log('4/4 → western/aspects');
@@ -1302,22 +1308,33 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
 
       if (!planetsData) {
         console.warn('Planets falhou — tentando freeastroapi.com');
-        return buscarDadosAstrasFallbackAPI(year, month, day, hour, minute, cidade);
+        return buscarDadosAstrasFallbackAPI(year, month, day, hour, minute, cidadeRaw);
       }
 
       return interpretarDadosAstrais({ planetsData, housesData, aspectsData });
     }
 
-    // ── Fallback: freeastroapi.com (aceita cidade direta)
+    // ── Fallback: freeastroapi.com
     async function buscarDadosAstrasFallbackAPI(year, month, day, hour, minute, cidade) {
+      console.log('Fallback freeastroapi — payload:', { year, month, day, hour, minute, cidade });
       const res = await fetch('https://api.freeastroapi.com/api/v1/natal/calculate', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': ASTRO_API_KEY },
-        body: JSON.stringify({ name: answers['nome'] || 'Pessoa', year, month, day, hour, minute, city: cidade, tz_str: 'AUTO' }),
+        body: JSON.stringify({
+          name:   answers['nome'] || 'Pessoa',
+          year, month, day,   // freeastroapi usa "day", não "date"
+          hour, minute,
+          city:   cidade.split(',')[0].trim(),
+          tz_str: 'AUTO',
+        }),
       });
-      if (!res.ok) throw new Error(`Fallback API erro ${res.status}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('Fallback erro body:', JSON.stringify(err));
+        throw new Error(`Fallback API erro ${res.status}`);
+      }
       const raw = await res.json();
-      // Adapta para o formato esperado por interpretarDadosAstrais
+      console.log('Fallback resposta:', JSON.stringify(raw).slice(0, 200));
       return interpretarDadosAstrais({ planetsData: raw, housesData: null, aspectsData: null });
     }
 
