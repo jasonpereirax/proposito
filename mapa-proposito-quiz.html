@@ -1226,84 +1226,82 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
       const [year, month, day] = dateStr.split('-').map(Number);
       const [hour, minute]     = hora.split(':').map(Number);
 
-      console.group('%c🌍 Buscando dados astrais completos', 'color:#C9A84C;font-weight:bold');
+      console.group('%c🌍 Buscando dados astrais', 'color:#C9A84C;font-weight:bold');
 
-      // ── ETAPA 1: Geo Location → lat, lng, timezone
-      console.log('1/4 → geo-details:', cidade);
-      let latitude, longitude, timezone;
+      // ── ETAPA 1: Geo Location
+      let latitude  = -23.5505;  // fallback SP
+      let longitude = -46.6333;
+      let timezone  = -3;
+
       try {
+        console.log('1/4 → geo-details:', cidade);
         const geoRaw = await vedicPost('geo-details', { location: cidade });
-        // A API retorna um array — pega o primeiro resultado
-        const geoArr = Array.isArray(geoRaw) ? geoRaw : (geoRaw?.output || [geoRaw]);
-        const loc    = geoArr[0];
-        if (!loc || loc.latitude == null) throw new Error('Resposta geo vazia: ' + JSON.stringify(geoRaw).slice(0,200));
-        latitude  = parseFloat(loc.latitude);
-        longitude = parseFloat(loc.longitude);
-        timezone  = parseFloat(loc.timezone_offset ?? loc.timezone ?? -3);
-        console.log('✅ Geo:', { latitude, longitude, timezone, nome: loc.complete_name || loc.location_name });
-      } catch (geoErr) {
-        console.warn('⚠️ geo-details falhou, usando São Paulo como fallback:', geoErr.message);
-        latitude  = -23.5505;
-        longitude = -46.6333;
-        timezone  = -3;
+        console.log('geo resposta bruta:', JSON.stringify(geoRaw).slice(0, 300));
+
+        // API retorna array direto: [{latitude, longitude, timezone_offset, ...}]
+        const arr = Array.isArray(geoRaw) ? geoRaw : [];
+        const loc = arr[0];
+
+        if (loc && loc.latitude != null && loc.longitude != null) {
+          latitude  = parseFloat(loc.latitude);
+          longitude = parseFloat(loc.longitude);
+          timezone  = parseFloat(loc.timezone_offset ?? loc.timezone ?? -3);
+          console.log('✅ Geo OK:', latitude, longitude, timezone, '|', loc.complete_name);
+        } else {
+          console.warn('⚠️ Geo sem coords — usando fallback SP. Resposta:', geoRaw);
+        }
+      } catch (e) {
+        console.warn('⚠️ geo-details erro — usando fallback SP:', e.message);
       }
 
-      // ── Payload base
-      const basePayload = {
+      // ── Payload base (campos na raiz conforme documentação)
+      const base = {
         year, month, date: day,
         hours: hour, minutes: minute, seconds: 0,
         latitude, longitude, timezone,
-        config: {
-          observation_point: 'topocentric',
-          ayanamsha:         'tropical',
-          language:          'en',
-        },
+        config: { observation_point: 'topocentric', ayanamsha: 'tropical', language: 'en' },
       };
 
-      // ── ETAPAS 2, 3 e 4: sequencial com delay entre chamadas para evitar rate limit 429
-      console.log('2/4 → western/planets');
+      console.log('Payload base:', JSON.stringify(base));
+
+      // ── ETAPAS 2-4: sequencial com delay para respeitar rate limit
       let planetsData = null, housesData = null, aspectsData = null;
 
       try {
-        const r = await vedicPost('western/planets', basePayload);
-        planetsData = r;
-        console.log('✅ Planets:', r?.output?.length ?? '?', 'corpos');
-      } catch(e) { console.warn('⚠️ planets falhou:', e.message); }
+        console.log('2/4 → western/planets');
+        planetsData = await vedicPost('western/planets', base);
+        console.log('✅ Planets:', planetsData?.output?.length, 'corpos');
+      } catch(e) { console.warn('⚠️ planets:', e.message); }
 
-      await sleep(400); // respeita rate limit da API gratuita
+      await sleep(500);
 
-      console.log('3/4 → western/houses');
       try {
-        const r = await vedicPost('western/houses', {
-          ...basePayload,
-          config: { ...basePayload.config, house_system: 'Placidus' },
+        console.log('3/4 → western/houses');
+        housesData = await vedicPost('western/houses', {
+          ...base, config: { ...base.config, house_system: 'Placidus' }
         });
-        housesData = r;
-        console.log('✅ Houses:', r?.output?.Houses?.length ?? '?', 'casas');
-      } catch(e) { console.warn('⚠️ houses falhou:', e.message); }
+        console.log('✅ Houses:', housesData?.output?.Houses?.length, 'casas');
+      } catch(e) { console.warn('⚠️ houses:', e.message); }
 
-      await sleep(400);
+      await sleep(500);
 
-      console.log('4/4 → western/aspects');
       try {
-        const r = await vedicPost('western/aspects', {
-          ...basePayload,
+        console.log('4/4 → western/aspects');
+        aspectsData = await vedicPost('western/aspects', {
+          ...base,
           config: {
-            ...basePayload.config,
-            exclude_planets: ['Ceres','Vesta','Juno','Pallas','Descendant','IC'],
+            ...base.config,
             allowed_aspects: ['Conjunction','Opposition','Trine','Square','Sextile','Quincunx'],
             orb_values: { Conjunction: 8, Opposition: 8, Trine: 7, Square: 7, Sextile: 6, Quincunx: 3 },
-          },
+          }
         });
-        aspectsData = r;
-        console.log('✅ Aspects:', r?.output?.length ?? '?', 'aspectos');
-      } catch(e) { console.warn('⚠️ aspects falhou:', e.message); }
+        console.log('✅ Aspects:', aspectsData?.output?.length, 'aspectos');
+      } catch(e) { console.warn('⚠️ aspects:', e.message); }
 
       console.groupEnd();
 
-      // Se planets falhou completamente, tenta freeastroapi.com como fallback
       if (!planetsData) {
-        console.warn('Planets falhou — tentando freeastroapi.com como fallback');
+        console.warn('Planets falhou — tentando freeastroapi.com');
         return buscarDadosAstrasFallbackAPI(year, month, day, hour, minute, cidade);
       }
 
