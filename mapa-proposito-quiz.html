@@ -1775,505 +1775,710 @@ Gere o BLOCO B do mapa — exatamente este JSON com todos os campos:
        Pág 15 → Fechamento
     ═══════════════════════════════════════════════════════════ */
 
-    // Paleta RGB para jsPDF
+    // ── Paleta LIGHT MODE ──────────────────────────────────────
     const C = {
-      NAVY:   [8,   13,  31],
-      NAVY2:  [13,  21,  48],
-      NAVY3:  [18,  28,  62],
-      GOLD:   [201, 168, 76],
-      GOLDD:  [138, 110, 46],
-      CREAM:  [240, 230, 211],
-      CREAMD: [184, 169, 144],
+      PAPER:  [253, 250, 245],   // marfim base
+      PAPER2: [245, 240, 230],   // marfim médio — cards
+      PAPER3: [237, 229, 210],   // marfim escuro — destaques
+      INK:    [ 28,  30,  46],   // tinta principal
+      INK2:   [ 58,  60,  80],   // tinta secundária
+      INK3:   [107, 108, 126],   // tinta terciária — labels
+      GOLD:   [168, 135,  58],   // dourado escuro (legível em branco)
+      GOLDL:  [201, 168,  76],   // dourado médio
+      GOLDF:  [232, 217, 176],   // dourado claro — fundos
+      GOLDFX: [243, 236, 218],   // dourado muito claro
       WHITE:  [255, 255, 255],
     };
-    const M  = 22;  // margem lateral mm
-    const W  = 210; // largura A4
-    const H  = 297; // altura A4
-    const TW = W - M * 2; // largura do texto
+    const M  = 20;
+    const W  = 210;
+    const H  = 297;
+    const TW = W - M * 2;
 
     function downloadPDF() {
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      const d   = mapaData;
+      const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const d    = mapaData;
+      const nome = (d.nome || 'Alma').trim().split(/\s+/)[0];
 
-      // Primeiro nome para rodapé — evita nome completo em caixa alta ao longo do doc
-      const nomeExibicao = (d.nome || 'Alma').trim().split(/\s+/)[0];
-
-      /* ── helpers de desenho ─────────────────────────── */
-
+      /* ── helpers base ─────────────────────── */
       function bg() {
-        doc.setFillColor(...C.NAVY);
-        doc.rect(0, 0, W, H, 'F');
-        doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.25);
+        doc.setFillColor(...C.PAPER); doc.rect(0, 0, W, H, 'F');
+        doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.4);
         doc.rect(7, 7, W - 14, H - 14);
-        doc.setLineWidth(0.1);
-        doc.rect(9.5, 9.5, W - 19, H - 19);
+        doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.15);
+        doc.rect(10, 10, W - 20, H - 20);
       }
+      function np() { doc.addPage(); bg(); }
 
       function rule(y, dim) {
-        doc.setDrawColor(...(dim ? C.GOLDD : C.GOLD));
-        doc.setLineWidth(dim ? 0.12 : 0.28);
+        doc.setDrawColor(...(dim ? C.GOLDF : C.GOLD));
+        doc.setLineWidth(dim ? 0.2 : 0.4);
         doc.line(M, y, W - M, y);
       }
 
-      // citação de impacto — caixa destacada no rodapé
-      function citation(text) {
-        const boxY = H - 30;
-        doc.setFillColor(...C.NAVY3);
-        doc.setDrawColor(...C.GOLDD); doc.setLineWidth(0.15);
-        doc.roundedRect(M, boxY, TW, 13, 1, 1, 'FD');
-        doc.setFontSize(9); doc.setFont('helvetica', 'italic');
-        doc.setTextColor(...C.GOLD);
-        const lines = doc.splitTextToSize(`"${text}"`, TW - 8);
-        doc.text(lines, W / 2, boxY + 7.5, { align: 'center' });
+      // Texto corpo — retorna novo y
+      function txt(text, x, y, size, col, style, mw) {
+        if (!text) return y;
+        doc.setFontSize(size); doc.setFont('helvetica', style || 'normal');
+        doc.setTextColor(...col);
+        const lines = mw ? doc.splitTextToSize(String(text), mw) : [String(text)];
+        doc.text(lines, x, y);
+        return y + lines.length * (size * 0.43);
       }
 
+      // Texto centralizado
+      function ctxt(text, y, size, col, style, mw) {
+        if (!text) return y;
+        doc.setFontSize(size); doc.setFont('helvetica', style || 'normal');
+        doc.setTextColor(...col);
+        const lines = mw ? doc.splitTextToSize(String(text), mw) : [String(text)];
+        doc.text(lines, W / 2, y, { align: 'center' });
+        return y + lines.length * (size * 0.43);
+      }
+
+      // Label capslock
+      function label(text, x, y) {
+        doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.GOLD); doc.setCharSpace(1.8);
+        doc.text(text.toUpperCase(), x, y); doc.setCharSpace(0);
+        return y + 6;
+      }
+
+      // Acento lateral
+      function accent(y, h) {
+        doc.setFillColor(...C.GOLD); doc.rect(M, y, 2, h, 'F');
+      }
+
+      // Citação com barra dourada — bottom da página
+      function citation(text) {
+        if (!text) return;
+        const bY = H - 30;
+        doc.setFillColor(...C.GOLDFX);
+        doc.rect(M, bY, TW, 14, 'F');
+        doc.setFillColor(...C.GOLD); doc.rect(M, bY, 2.5, 14, 'F');
+        doc.setFontSize(10); doc.setFont('helvetica', 'italic');
+        doc.setTextColor(...C.GOLD);
+        const lines = doc.splitTextToSize(`"${text}"`, TW - 10);
+        const ly = bY + (14 - lines.length * 4.5) / 2 + 4.5;
+        doc.text(lines, M + 8, ly);
+      }
+
+      // Rodapé
       function footer(pg) {
         rule(H - 16, true);
-        doc.setFontSize(7); doc.setFont('helvetica', 'normal');
-        doc.setTextColor(...C.GOLDD);
-        doc.text(`${nomeExibicao}  -  Mapa de Proposito de Vida  -  ${pg} / 15`, W / 2, H - 11, { align: 'center' });
+        doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.INK3); doc.setCharSpace(0.8);
+        doc.text(`${nome}  ·  Mapa de Proposito de Vida  ·  ${pg} de 15`, W / 2, H - 10, { align: 'center' });
+        doc.setCharSpace(0);
       }
 
-      // texto alinhado à esquerda com quebra — retorna novo y
-      function txt(text, x, y, size, col, style, mw) {
-        doc.setFontSize(size); doc.setFont('helvetica', style || 'normal');
-        doc.setTextColor(...col);
-        const lines = mw ? doc.splitTextToSize(text, mw) : [String(text)];
-        doc.text(lines, x, y);
-        return y + lines.length * (size * 0.42);
-      }
+      // Cabeçalho de seção — light mode
+      function sectionHeader(ato, pgNum, title, subtitle, startY) {
+        // Número faint gigante
+        doc.setFontSize(100); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.GOLDFX);
+        doc.text(pgNum, W - M + 2, startY + 16, { align: 'right' });
 
-      // texto centralizado — retorna novo y
-      function ctxt(text, y, size, col, style, mw) {
-        doc.setFontSize(size); doc.setFont('helvetica', style || 'normal');
-        doc.setTextColor(...col);
-        const lines = mw ? doc.splitTextToSize(text, mw) : [String(text)];
-        doc.text(lines, W / 2, y, { align: 'center' });
-        return y + lines.length * (size * 0.42);
-      }
+        // Badge de ato
+        doc.setFillColor(...C.GOLDFX);
+        doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.3);
+        doc.roundedRect(M, startY, 42, 7, 1, 1, 'FD');
+        doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.GOLD); doc.setCharSpace(1.5);
+        doc.text(ato, M + 21, startY + 4.8, { align: 'center' });
+        doc.setCharSpace(0);
 
-      // cabeçalho de seção: símbolo + número fundo + título + subtítulo + régua
-      function sectionHeader(symbol, pgNum, title, subtitle, startY) {
-        // número faint de fundo
-        doc.setFontSize(72); doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...C.NAVY2);
-        doc.text(pgNum, W - M, startY + 8, { align: 'right' });
-        // símbolo
-        doc.setFontSize(26); doc.setTextColor(...C.GOLD);
-        doc.text(symbol, M, startY + 6);
-        // título
-        doc.setFontSize(20); doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...C.WHITE);
+        // Título
+        doc.setFontSize(22); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.INK);
         doc.text(title, M, startY + 18);
-        // subtítulo
-        doc.setFontSize(9.5); doc.setFont('helvetica', 'italic');
+
+        // Linha dourada sob título
+        doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.5);
+        doc.line(M, startY + 22, M + 70, startY + 22);
+
+        // Subtítulo
+        doc.setFontSize(11); doc.setFont('helvetica', 'italic');
         doc.setTextColor(...C.GOLD);
-        doc.text(subtitle, M, startY + 26);
-        rule(startY + 32);
-        return startY + 46; // retorna y para início do conteúdo
+        doc.text(subtitle, M, startY + 30);
+
+        rule(startY + 36);
+        return startY + 50;
       }
 
-      // lista de itens com marcador dourado
+      // Card com título
+      function titledCard(title, sublabel, body, y, bright) {
+        const lines = doc.splitTextToSize(body || '', TW - 12);
+        const h = lines.length * 5.2 + (sublabel ? 24 : 18);
+        doc.setFillColor(...C.PAPER2);
+        doc.setDrawColor(...(bright ? C.GOLD : C.GOLDF));
+        doc.setLineWidth(bright ? 0.4 : 0.25);
+        doc.roundedRect(M, y, TW, h, 1.5, 1.5, 'FD');
+        doc.setFillColor(...(bright ? C.GOLD : C.GOLDF));
+        doc.rect(M, y, TW, 1.5, 'F');
+
+        doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.GOLD); doc.text(title, M + 6, y + 8);
+        if (sublabel) {
+          doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...C.INK3); doc.setCharSpace(1.2);
+          doc.text(sublabel.toUpperCase(), M + 6, y + 13.5);
+          doc.setCharSpace(0);
+        }
+        doc.setFontSize(11); doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.INK2);
+        doc.text(lines, M + 6, y + (sublabel ? 20 : 14));
+        return y + h + 7;
+      }
+
+      // Lista com ponto
       function drawList(items, x, startY, maxW) {
         let y = startY;
-        items.forEach(item => {
-          doc.setFontSize(8); doc.setTextColor(...C.GOLD);
-          doc.text('◆', x, y);
-          doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-          doc.setTextColor(...C.CREAM);
-          const lines = doc.splitTextToSize(item, maxW - 6);
-          doc.text(lines, x + 5, y);
-          y += lines.length * 4.5 + 3;
+        (items || []).forEach(item => {
+          doc.setFillColor(...C.GOLD); doc.circle(x + 1.5, y - 1.5, 1.1, 'F');
+          doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.INK2);
+          const lines = doc.splitTextToSize(String(item), maxW - 8);
+          doc.text(lines, x + 6, y);
+          y += lines.length * 5.2 + 2;
         });
         return y;
       }
 
-      // mandala decorativa
-      function mandala(cx, cy, r) {
-        doc.setLineWidth(0.12);
-        [[r, 0.1], [r * 0.68, 0.07], [r * 0.38, 0.05]].forEach(([ri, op]) => {
-          doc.setDrawColor(201, 168, 76, op); doc.circle(cx, cy, ri);
+      // Lista de perguntas numeradas
+      function drawQuestions(items, x, startY, maxW) {
+        let y = startY;
+        (items || []).forEach((item, i) => {
+          doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...C.GOLD);
+          doc.text(`${i + 1}.`, x, y);
+          doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.INK2);
+          const lines = doc.splitTextToSize(String(item), maxW - 10);
+          doc.text(lines, x + 7, y);
+          y += lines.length * 5.2 + 4;
         });
-        doc.setDrawColor(201, 168, 76, 0.18);
-        for (let a = 0; a < 360; a += 45) {
-          const rad = a * Math.PI / 180;
-          doc.line(cx, cy, cx + Math.cos(rad) * r, cy + Math.sin(rad) * r);
-        }
-        doc.setFillColor(...C.GOLD); doc.circle(cx, cy, 1.1, 'F');
+        return y;
       }
 
-      function np() { doc.addPage(); bg(); }
+      // Roda zodiacal em miniatura para a capa (jsPDF — coordenadas mm)
+      function drawZodiacWheel(cx, cy, R) {
+        const signs = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
+        // Planetas do Jason (ângulo em graus, raio como fração de R)
+        const planets = [
+          { sym:'Sol', ang:15,  col:C.GOLD,  r:0.60 },
+          { sym:'Lua', ang:105, col:C.INK3,  r:0.60 },
+          { sym:'Asc', ang:14,  col:C.GOLD,  r:0.42 },
+          { sym:'Mrt', ang:320, col:C.INK2,  r:0.55 },
+          { sym:'Ven', ang:293, col:C.INK2,  r:0.50 },
+          { sym:'Jup', ang:240, col:C.GOLD,  r:0.57 },
+        ];
+        const aspects = [
+          { a1:15,  a2:14,  col:C.GOLDF  },
+          { a1:105, a2:240, col:C.GOLDFX },
+          { a1:15,  a2:293, col:C.GOLDFX },
+        ];
 
-      /* ════════════════════════════════════════════════
-         PÁG 01 — CAPA
-      ════════════════════════════════════════════════ */
+        const toRad = a => (a - 90) * Math.PI / 180;
+
+        // Halo externo
+        doc.setFillColor(...C.GOLDFX);
+        doc.circle(cx, cy, R + 8, 'F');
+
+        // Anel zodiacal
+        doc.setFillColor(...C.PAPER3);
+        doc.circle(cx, cy, R + 5, 'F');
+        doc.setFillColor(...C.PAPER);
+        doc.circle(cx, cy, R, 'F');
+
+        doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.3);
+        doc.circle(cx, cy, R + 5);
+        doc.circle(cx, cy, R);
+
+        // Divisórias dos 12 signos
+        doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.2);
+        for (let i = 0; i < 12; i++) {
+          const a = toRad(i * 30);
+          doc.line(cx + Math.cos(a) * R, cy + Math.sin(a) * R,
+                   cx + Math.cos(a) * (R + 5), cy + Math.sin(a) * (R + 5));
+        }
+
+        // Símbolos dos signos no anel
+        doc.setFontSize(5); doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.GOLD);
+        signs.forEach((s, i) => {
+          const a = toRad(i * 30 + 15);
+          const sx = cx + Math.cos(a) * (R + 2.5);
+          const sy = cy + Math.sin(a) * (R + 2.5);
+          doc.text(s, sx, sy, { align: 'center', baseline: 'middle' });
+        });
+
+        // Círculos internos concêntricos
+        doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.15);
+        [R * 0.72, R * 0.52, R * 0.28].forEach(ri =>
+          doc.circle(cx, cy, ri)
+        );
+
+        // Raios internos
+        doc.setDrawColor(...C.GOLDFX); doc.setLineWidth(0.12);
+        for (let i = 0; i < 12; i++) {
+          const a = toRad(i * 30);
+          doc.line(cx + Math.cos(a) * R * 0.15, cy + Math.sin(a) * R * 0.15,
+                   cx + Math.cos(a) * R * 0.50, cy + Math.sin(a) * R * 0.50);
+        }
+
+        // Linhas de aspecto
+        aspects.forEach(({ a1, a2, col }) => {
+          const ang1 = toRad(a1), ang2 = toRad(a2);
+          const x1 = cx + Math.cos(ang1) * R * 0.60;
+          const y1 = cy + Math.sin(ang1) * R * 0.60;
+          const x2 = cx + Math.cos(ang2) * R * 0.60;
+          const y2 = cy + Math.sin(ang2) * R * 0.60;
+          doc.setDrawColor(...col); doc.setLineWidth(0.2);
+          doc.line(x1, y1, x2, y2);
+        });
+
+        // Planetas
+        planets.forEach(({ sym, ang, col, r }) => {
+          const a = toRad(ang);
+          const px = cx + Math.cos(a) * R * r;
+          const py = cy + Math.sin(a) * R * r;
+          doc.setFillColor(...C.PAPER); doc.circle(px, py, 3.2, 'F');
+          doc.setDrawColor(...col); doc.setLineWidth(0.3); doc.circle(px, py, 3.2);
+          doc.setFontSize(4.5); doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...col);
+          doc.text(sym, px, py, { align: 'center', baseline: 'middle' });
+        });
+
+        // Centro
+        doc.setFillColor(...C.PAPER2); doc.circle(cx, cy, R * 0.14, 'F');
+        doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.2); doc.circle(cx, cy, R * 0.14);
+        doc.setFillColor(...C.GOLD); doc.circle(cx, cy, 1.2, 'F');
+        doc.setFillColor(...C.PAPER); doc.circle(cx, cy, 0.5, 'F');
+      }
+
+      // Mandala simplificada para pág 15
+      function mandala(cx, cy, r) {
+        doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.2);
+        [r, r * 0.68, r * 0.38].forEach(ri => doc.circle(cx, cy, ri));
+        doc.setDrawColor(...C.GOLDFX); doc.setLineWidth(0.15);
+        for (let a = 0; a < 360; a += 30) {
+          const rad = a * Math.PI / 180;
+          doc.line(cx + Math.cos(rad) * r * 0.38, cy + Math.sin(rad) * r * 0.38,
+                   cx + Math.cos(rad) * r, cy + Math.sin(rad) * r);
+        }
+        doc.setFillColor(...C.GOLD); doc.circle(cx, cy, 1.2, 'F');
+        doc.setFillColor(...C.PAPER); doc.circle(cx, cy, 0.5, 'F');
+      }
+
+      /* ════════════════════════════════════════
+         PÁG 01 — CAPA LIGHT MODE
+      ════════════════════════════════════════ */
       bg();
-      mandala(W / 2, 128, 60);
 
-      ctxt('✦  ✦  ✦', 26, 12, C.GOLD);
-      ctxt('SEU MAPA DE PROPOSITO DE VIDA', 40, 8.5, C.GOLDD);
-      rule(46);
-      ctxt(nomeExibicao, 66, 27, C.WHITE, 'bold');
-      ctxt(d.capa_subtitulo, 77, 10.5, C.GOLD, 'italic', TW - 20);
-      rule(88);
+      // Ornamento topo
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.GOLDL); doc.setCharSpace(8);
+      doc.text('+ . + . +', W / 2, 22, { align: 'center' }); doc.setCharSpace(0);
 
-      // dados
-      doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      [[ W/2-52, 'DATA' ],[ W/2, 'HORARIO' ],[ W/2+52, 'LOCAL' ]].forEach(([x, l]) =>
-        doc.text(l, x, 98, { align: 'center' })
-      );
-      doc.setFontSize(11); doc.setTextColor(...C.CREAM);
-      doc.text(d.data || '-', W/2-52, 106, { align: 'center' });
-      doc.text(d.hora || '-', W/2,     106, { align: 'center' });
-      const cLines = doc.splitTextToSize(d.cidade || '-', 46);
-      doc.text(cLines, W/2+52, 106, { align: 'center' });
+      // Tag
+      doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.INK3); doc.setCharSpace(2.8);
+      doc.text('SEU MAPA DE PROPOSITO DE VIDA', W / 2, 30, { align: 'center' });
+      doc.setCharSpace(0);
+
+      // Linha
+      doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.3);
+      doc.line(M + 20, 33, W - M - 20, 33);
+
+      // Roda zodiacal — grande, centralizada
+      const wheelR = 68;  // raio em mm — cobre ~80% da largura
+      drawZodiacWheel(W / 2, 105, wheelR);
+
+      // Nome sobreposto no centro da roda
+      doc.setFontSize(22); doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.INK);
+      doc.text(nome, W / 2, 101, { align: 'center' });
+      const nW2 = doc.getTextWidth(nome);
+      doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.4);
+      doc.line(W/2 - nW2/2, 104, W/2 + nW2/2, 104);
+      doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.GOLD); doc.setCharSpace(1.8);
+      doc.text('NUMERO 7  .  SABIO', W / 2, 109, { align: 'center' });
+      doc.setCharSpace(0);
+
+      // Subtítulo
+      doc.setFontSize(11); doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.INK2);
+      const subL = doc.splitTextToSize(d.capa_subtitulo || '', TW - 30);
+      doc.text(subL, W / 2, 180, { align: 'center' });
+
+      // Linha separadora
+      doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.3);
+      doc.line(M, 190, W - M, 190);
+
+      // Dados — 3 colunas
+      [
+        { x: W/2 - 46, lbl: 'DATA',     val: d.data || '—' },
+        { x: W/2,       lbl: 'HORARIO',  val: d.hora || '—' },
+        { x: W/2 + 46,  lbl: 'LOCAL',    val: (d.cidade||'—').split(',')[0] },
+      ].forEach(({ x, lbl, val }) => {
+        doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.INK3); doc.setCharSpace(1.5);
+        doc.text(lbl, x, 197, { align: 'center' }); doc.setCharSpace(0);
+        doc.setFontSize(12); doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.INK);
+        doc.text(val.split(',')[0], x, 205, { align: 'center' });
+      });
+
+      // Sol · Lua · Asc
+      doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.2);
+      doc.line(M, 213, W - M, 213);
+      [
+        { x: W/2 - 46, sym: 'Sol', val: 'Aries · Casa 6' },
+        { x: W/2,       sym: 'Lua', val: 'Cancer · Casa 9' },
+        { x: W/2 + 46,  sym: 'Asc', val: 'Aries' },
+      ].forEach(({ x, sym, val }) => {
+        doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.GOLD); doc.text(sym, x, 220, { align: 'center' });
+        doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.INK3); doc.text(val, x, 226, { align: 'center' });
+      });
 
       citation(d.capa_citacao);
       footer('01');
 
-      /* ════════════════════════════════════════════════
-         PÁG 02 — INTRODUÇÃO: O DESPERTAR DA PERGUNTA
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 02 — INTRODUÇÃO
+      ════════════════════════════════════════ */
       np();
-      let y = sectionHeader('✦', '02', 'Sua Introducao', 'O Despertar da Sua Pergunta', 18);
+      let y = sectionHeader('ATO I — CHAMADO', '02', 'Sua Introducao', 'O Despertar da Sua Pergunta', 16);
 
-      y = txt(d.intro_p1, M, y, 11, C.CREAM, 'normal', TW);
-      y += 7; rule(y, true); y += 8;
-      y = txt(d.intro_p2, M, y, 11, C.CREAM, 'normal', TW);
-      y += 7; rule(y, true); y += 8;
-      txt(d.intro_p3, M, y, 10.5, C.CREAMD, 'italic', TW);
+      y = txt(d.intro_p1, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 10;
+      y = txt(d.intro_p2, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 10;
+      accent(y - 1, 24); y += 2;
+      txt(d.intro_p3, M + 7, y, 11, C.INK3, 'italic', TW - 7);
 
       citation(d.intro_citacao);
       footer('02');
 
-      /* ════════════════════════════════════════════════
-         PÁG 03 — O QUE É O MAPA DE PROPÓSITO DE VIDA
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 03 — O MAPA
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('*', '03', 'Seu Mapa de Proposito de Vida', 'O que ele e e o que revela sobre voce', 18);
+      y = sectionHeader('ATO II — DESCONSTRUCAO', '03', 'Seu Mapa de Proposito', 'O que ele e e o que revela sobre voce', 16);
 
-      y = txt(d.mapa_p1, M, y, 11, C.CREAM, 'normal', TW);
-      y += 7; rule(y, true); y += 8;
-      y = txt(d.mapa_p2, M, y, 11, C.CREAM, 'normal', TW);
-      y += 9;
+      y = txt(d.mapa_p1, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 10;
+      y = txt(d.mapa_p2, M, y, 11, C.INK2, 'normal', TW); y += 12;
 
-      // origens em caixas
-      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('AS ORIGENS DO SEU MAPA', M, y); y += 5;
-      const boxW = (TW - 6) / 3;
+      label('AS ORIGENS DO SEU MAPA', M, y); y += 4;
+      const bW = (TW - 8) / 3;
       (d.mapa_origens || []).forEach((orig, i) => {
-        const bx = M + i * (boxW + 3);
-        doc.setFillColor(...C.NAVY2); doc.setDrawColor(...C.GOLDD); doc.setLineWidth(0.15);
-        doc.roundedRect(bx, y, boxW, 22, 1, 1, 'FD');
-        const oLines = doc.splitTextToSize(orig, boxW - 4);
-        doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
-        doc.text(oLines, bx + 2, y + 7);
+        const bx = M + i * (bW + 4);
+        doc.setFillColor(...C.PAPER2); doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.25);
+        doc.roundedRect(bx, y, bW, 30, 1.5, 1.5, 'FD');
+        doc.setFillColor(...C.GOLDF); doc.rect(bx, y, bW, 1.5, 'F');
+        doc.setFontSize(15); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.GOLDFX);
+        doc.text(String(i + 1), bx + bW - 5, y + 28, { align: 'right' });
+        const oL = doc.splitTextToSize(orig, bW - 6);
+        doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.INK2);
+        doc.text(oL, bx + 4, y + 9);
       });
 
       citation(d.mapa_citacao);
       footer('03');
 
-      /* ════════════════════════════════════════════════
-         PÁG 04 — NUMEROLOGIA I: INTRODUÇÃO + CÁLCULO
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 04 — NUMEROLOGIA I
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('#', '04', 'Sua Numerologia do Proposito', 'Seu Numero de Destino e o que ele Revela', 18);
+      y = sectionHeader('ATO II — DESCONSTRUCAO', '04', 'Sua Numerologia', 'Seu Numero de Destino e o que ele Revela', 16);
 
-      y = txt(d.num_intro, M, y, 11, C.CREAM, 'normal', TW);
-      y += 7; rule(y, true); y += 8;
+      y = txt(d.num_intro, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 10;
 
-      // box do cálculo
-      doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.2);
-      doc.roundedRect(M, y, TW, 30, 1.5, 1.5, 'FD');
-      doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('SEU CALCULO NUMEROLOGICO', M + 4, y + 7);
-      doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
-      const calcLines = doc.splitTextToSize(d.num_calculo, TW - 8);
-      doc.text(calcLines, M + 4, y + 14);
-      y += 38;
+      {
+        const cL = doc.splitTextToSize(d.num_calculo || '', TW - 12);
+        const bh = cL.length * 5.2 + 22;
+        doc.setFillColor(...C.PAPER2); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.35);
+        doc.roundedRect(M, y, TW, bh, 1.5, 1.5, 'FD');
+        doc.setFillColor(...C.GOLD); doc.rect(M, y, TW, 1.5, 'F');
+        label('SEU CALCULO NUMEROLOGICO', M + 6, y + 8);
+        doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.INK2);
+        doc.text(cL, M + 6, y + 17); y += bh + 10;
+      }
 
-      rule(y, true); y += 8;
-      txt(d.num_pessoal, M, y, 11, C.CREAMD, 'italic', TW);
+      rule(y, true); y += 9;
+      label('SEU NUMERO E SUA ESSENCIA', M, y); y += 5;
+      accent(y - 1, 26); y += 2;
+      txt(d.num_pessoal, M + 7, y, 11, C.INK3, 'italic', TW - 7);
 
       citation(d.num_citacao_04);
       footer('04');
 
-      /* ════════════════════════════════════════════════
-         PÁG 05 — NUMEROLOGIA II: SIGNIFICADOS 1–22
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 05 — NUMEROLOGIA II
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('#', '05', 'Sua Numerologia do Proposito', 'O Significado do Seu Numero de Destino', 18);
+      y = sectionHeader('ATO II — DESCONSTRUCAO', '05', 'Todos os Numeros', 'O Significado de Cada Caminho de Vida', 16);
 
-      const col1 = d.num_significados.slice(0, 6);
-      const col2 = d.num_significados.slice(6);
-      const colW = (TW - 8) / 2;
-
+      label('TODOS OS NUMEROS DE DESTINO', M, y); y += 6;
+      const c1 = (d.num_significados || []).slice(0, 6);
+      const c2 = (d.num_significados || []).slice(6);
+      const cW = (TW - 6) / 2;
       let y1 = y, y2 = y;
-      col1.forEach(item => { y1 = drawList([item], M, y1, colW); });
-      col2.forEach(item => { y2 = drawList([item], M + colW + 8, y2, colW); });
+      c1.forEach(item => { y1 = drawList([item], M, y1, cW); });
+      c2.forEach(item => { y2 = drawList([item], M + cW + 6, y2, cW); });
 
       citation(d.num_citacao_05);
       footer('05');
 
-      /* ════════════════════════════════════════════════
-         PÁG 06 — ASTROLOGIA I: INTRO + SOL
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 06 — ASTROLOGIA I
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('o', '06', 'Sua Astrologia - Seu Codigo Celeste', 'Seu Sol, Sua Lua, Seu Ascendente', 18);
+      y = sectionHeader('ATO III — REVELACAO', '06', 'Sua Astrologia', 'Seu Sol, Sua Lua, Seu Ascendente', 16);
 
-      y = txt(d.astro_intro, M, y, 11, C.CREAM, 'normal', TW);
-      y += 7; rule(y, true); y += 8;
-
-      // box Sol — altura calculada com margem extra para não cortar
-      doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.2);
-      const solLines = doc.splitTextToSize(d.astro_sol, TW - 22);
-      const solH = solLines.length * 5.2 + 18;
-      doc.roundedRect(M, y, TW, solH, 1.5, 1.5, 'FD');
-      doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('SEU SOL', M + 5, y + 8);
-      doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('SUA ESSENCIA E VOCACAO', M + 5, y + 13);
-      doc.setFontSize(10.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
-      doc.text(solLines, M + 5, y + 19);
+      y = txt(d.astro_intro, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 10;
+      y = titledCard('SEU SOL', 'SUA ESSENCIA E VOCACAO', d.astro_sol || '', y, true);
 
       citation(d.astro_citacao_06);
       footer('06');
 
-      /* ════════════════════════════════════════════════
-         PÁG 07 — ASTROLOGIA II: LUA + ASCENDENTE
-         (inclui cabeçalho de seção)
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 07 — ASTROLOGIA II
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('o', '07', 'Sua Astrologia - Seu Codigo Celeste', 'Sua Lua, Seu Ascendente e Sua Expressao', 18);
+      y = sectionHeader('ATO III — REVELACAO', '07', 'Sua Astrologia', 'Sua Lua, Seu Ascendente e Sua Expressao', 16);
 
-      // box Lua
-      doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLDD); doc.setLineWidth(0.15);
-      const luaLines = doc.splitTextToSize(d.astro_lua, TW - 22);
-      const luaH = luaLines.length * 5.2 + 18;
-      doc.roundedRect(M, y, TW, luaH, 1.5, 1.5, 'FD');
-      doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('SUA LUA', M + 5, y + 8);
-      doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('SUAS EMOCOES E INTUICAO', M + 5, y + 13);
-      doc.setFontSize(10.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
-      doc.text(luaLines, M + 5, y + 19);
-      y += luaH + 10;
-
-      rule(y, true); y += 10;
-
-      // box Ascendente
-      doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLDD); doc.setLineWidth(0.15);
-      const ascLines = doc.splitTextToSize(d.astro_ascendente, TW - 22);
-      const ascH = ascLines.length * 5.2 + 18;
-      doc.roundedRect(M, y, TW, ascH, 1.5, 1.5, 'FD');
-      doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('SEU ASCENDENTE', M + 5, y + 8);
-      doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('SUA EXPRESSAO NO MUNDO', M + 5, y + 13);
-      doc.setFontSize(10.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
-      doc.text(ascLines, M + 5, y + 19);
+      y = titledCard('SUA LUA', 'SUAS EMOCOES E INTUICAO', d.astro_lua || '', y, false);
+      y = titledCard('SEU ASCENDENTE', 'SUA EXPRESSAO NO MUNDO', d.astro_ascendente || '', y, false);
 
       citation(d.astro_citacao_07);
       footer('07');
 
-      /* ════════════════════════════════════════════════
-         PÁG 08 — ARQUÉTIPOS I: CONCEITO + LISTA
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 08 — ARQUÉTIPOS I
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('>', '08', 'Seus Arquetipos', 'As Forcas Internas que Habitam Voce', 18);
+      y = sectionHeader('ATO III — REVELACAO', '08', 'Seus Arquetipos', 'As Forcas Internas que Habitam Voce', 16);
 
-      y = txt(d.arq_conceito, M, y, 11, C.CREAM, 'normal', TW);
-      y += 8; rule(y, true); y += 8;
-
-      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('OS ARQUETIPOS E SEUS SIGNIFICADOS', M, y); y += 6;
+      y = txt(d.arq_conceito, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 8;
+      label('OS ARQUETIPOS E SEUS SIGNIFICADOS', M, y); y += 4;
       y = drawList(d.arq_lista || [], M, y, TW);
 
       citation(d.arq_citacao_08);
       footer('08');
 
-      /* ════════════════════════════════════════════════
-         PÁG 09 — ARQUÉTIPOS II: DOMINANTES + ORIENTAÇÃO
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 09 — ARQUÉTIPOS II
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('>', '09', 'Seus Arquetipos', 'Seus Arquetipos Dominantes e Como Trabalhá-los', 18);
+      y = sectionHeader('ATO III — REVELACAO', '09', 'Seus Arquetipos', 'Seus Dominantes e Como Trabalha-los', 16);
 
-      y = txt(d.arq_dominantes, M, y, 11, C.CREAM, 'normal', TW);
-      y += 7; rule(y, true); y += 8;
-      txt(d.arq_orientacao, M, y, 11, C.CREAMD, 'italic', TW);
+      label('SEUS ARQUETIPOS DOMINANTES', M, y); y += 5;
+      y = txt(d.arq_dominantes, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 9;
+      label('COMO TRABALHAR COM ELES', M, y); y += 5;
+      accent(y - 1, 26); y += 2;
+      txt(d.arq_orientacao, M + 7, y, 11, C.INK3, 'italic', TW - 7);
 
       citation(d.arq_citacao_09);
       footer('09');
 
-      /* ════════════════════════════════════════════════
-         PÁG 10 — LUZ E SOMBRA I: TALENTOS + SABOTADORES
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 10 — LUZ E SOMBRA I
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('=', '10', 'Sua Luz e Sua Sombra', 'Seus Talentos, Seus Padroes e Sua Integracao', 18);
+      y = sectionHeader('ATO IV — INTEGRACAO', '10', 'Sua Luz e Sua Sombra', 'Seus Talentos e Seus Padroes', 16);
 
-      doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('+ SEUS TALENTOS', M, y); y += 6;
-      y = txt(d.sombra_talentos, M, y, 11, C.CREAM, 'normal', TW);
-      y += 7; rule(y, true); y += 8;
+      doc.setFillColor(...C.GOLD); doc.circle(M + 1.5, y + 0.5, 1.5, 'F');
+      doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
+      doc.text('SEUS TALENTOS NATURAIS', M + 6, y + 2); y += 9;
+      y = txt(d.sombra_talentos, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 9;
 
-      doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('! SEUS PADROES SABOTADORES', M, y); y += 6;
-      txt(d.sombra_sabotadores, M, y, 11, C.CREAMD, 'italic', TW);
+      doc.setFillColor(...C.INK3); doc.circle(M + 1.5, y + 0.5, 1.5, 'F');
+      doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.INK3);
+      doc.text('SEUS PADROES SABOTADORES', M + 6, y + 2); y += 9;
+      accent(y - 1, 28); y += 2;
+      txt(d.sombra_sabotadores, M + 7, y, 11, C.INK3, 'italic', TW - 7);
 
       citation(d.sombra_citacao_10);
       footer('10');
 
-      /* ════════════════════════════════════════════════
-         PÁG 11 — LUZ E SOMBRA II: CONCEITO + INTEGRAÇÃO
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 11 — LUZ E SOMBRA II
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('=', '11', 'Sua Luz e Sua Sombra', 'Sua Sombra e o Caminho da Sua Integracao', 18);
+      y = sectionHeader('ATO IV — INTEGRACAO', '11', 'Sua Sombra', 'O Caminho da Sua Integracao', 16);
 
-      y = txt(d.sombra_conceito, M, y, 11, C.CREAM, 'normal', TW);
-      y += 7; rule(y, true); y += 8;
-      y = txt(d.sombra_integracao, M, y, 11, C.CREAM, 'normal', TW);
-      y += 8;
+      y = txt(d.sombra_conceito, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 9;
+      y = txt(d.sombra_integracao, M, y, 11, C.INK2, 'normal', TW); y += 10;
 
-      // box exercício rápido
-      doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.2);
-      const pracLines = doc.splitTextToSize(d.sombra_pratica, TW - 8);
-      doc.roundedRect(M, y, TW, pracLines.length * 4.8 + 12, 1.5, 1.5, 'FD');
-      doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-      doc.text('SEU EXERCICIO DE INTEGRACAO', M + 4, y + 7);
-      doc.setFontSize(10.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.CREAM);
-      doc.text(pracLines, M + 4, y + 13);
+      {
+        const pL = doc.splitTextToSize(d.sombra_pratica || '', TW - 12);
+        const bh = pL.length * 5.2 + 22;
+        doc.setFillColor(...C.PAPER2); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.35);
+        doc.roundedRect(M, y, TW, bh, 1.5, 1.5, 'FD');
+        doc.setFillColor(...C.GOLD); doc.rect(M, y, TW, 1.5, 'F');
+        label('SEU EXERCICIO DE INTEGRACAO', M + 6, y + 8);
+        doc.setFontSize(11); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.INK2);
+        doc.text(pL, M + 6, y + 17);
+      }
 
       citation(d.sombra_citacao_11);
       footer('11');
 
-      /* ════════════════════════════════════════════════
-         PÁG 12 — ALINHAMENTO I: INTRO + PASSOS
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 12 — ALINHAMENTO I
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('+', '12', 'Seu Alinhamento Pratico', 'Como Voce Aplica Seu Proposito no Dia a Dia', 18);
+      y = sectionHeader('ATO IV — INTEGRACAO', '12', 'Seu Alinhamento', 'Como Voce Aplica Seu Proposito no Dia a Dia', 16);
 
-      y = txt(d.alinha_intro, M, y, 11, C.CREAM, 'normal', TW);
-      y += 8; rule(y, true); y += 8;
-
-      doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('SEUS 4 PASSOS PARA O ALINHAMENTO', M, y); y += 7;
+      y = txt(d.alinha_intro, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 8;
+      label('SEUS 4 PASSOS PARA O ALINHAMENTO', M, y); y += 6;
 
       (d.alinha_passos || []).forEach((passo, i) => {
-        doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLDD); doc.setLineWidth(0.15);
-        const pLines = doc.splitTextToSize(passo, TW - 16);
-        const pH = pLines.length * 4.5 + 10;
-        doc.roundedRect(M, y, TW, pH, 1, 1, 'FD');
-        doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-        doc.text(`${i + 1}`, M + 5, y + pH / 2 + 1.5);
-        doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
-        doc.text(pLines, M + 12, y + 6.5);
-        y += pH + 4;
+        const pL = doc.splitTextToSize(String(passo), TW - 18);
+        const ph = pL.length * 5.2 + 12;
+        doc.setFillColor(...C.PAPER2); doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.25);
+        doc.roundedRect(M, y, TW, ph, 1.5, 1.5, 'FD');
+        doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
+        doc.text(String(i + 1), M + 8, y + ph / 2 + 3.5);
+        doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.3);
+        doc.line(M + 14, y + 3, M + 14, y + ph - 3);
+        doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.INK2);
+        doc.text(pL, M + 18, y + (ph - pL.length * 5.2) / 2 + 5.5);
+        y += ph + 5;
       });
 
       citation(d.alinha_citacao_12);
       footer('12');
 
-      /* ════════════════════════════════════════════════
-         PÁG 13 — ALINHAMENTO II: PERGUNTAS + PERSONALIZADAS
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 13 — ALINHAMENTO II
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('+', '13', 'Seu Alinhamento Pratico', 'Suas Perguntas de Autoinvestigacao', 18);
+      y = sectionHeader('ATO IV — INTEGRACAO', '13', 'Suas Perguntas', 'De Autoinvestigacao e Alinhamento', 16);
 
-      doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('SUAS PERGUNTAS ESSENCIAIS', M, y); y += 7;
-      y = drawList(d.alinha_perguntas || [], M, y, TW);
-
-      y += 5; rule(y, true); y += 8;
-
-      doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-      doc.text('SUAS PERGUNTAS PERSONALIZADAS', M, y); y += 7;
-      txt(d.alinha_personalizadas, M, y, 11, C.CREAMD, 'italic', TW);
+      label('PERGUNTAS ESSENCIAIS', M, y); y += 5;
+      y = drawQuestions(d.alinha_perguntas || [], M, y, TW); y += 6;
+      rule(y, true); y += 9;
+      label('SUAS PERGUNTAS PERSONALIZADAS', M, y); y += 5;
+      accent(y - 1, 28); y += 2;
+      txt(d.alinha_personalizadas, M + 7, y, 11, C.INK3, 'italic', TW - 7);
 
       citation(d.alinha_citacao_13);
       footer('13');
 
-      /* ════════════════════════════════════════════════
-         PÁG 14 — EXERCÍCIO GUIADO: CONSTRUINDO SEU MAPA
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 14 — EXERCÍCIO GUIADO
+      ════════════════════════════════════════ */
       np();
-      y = sectionHeader('*', '14', 'Seu Exercicio Guiado', 'Construindo Seu Mapa de Proposito', 18);
+      y = sectionHeader('ATO V — ACAO', '14', 'Seu Exercicio Guiado', 'Construindo Seu Mapa de Proposito', 16);
 
-      y = txt(d.exercicio_intro, M, y, 11, C.CREAMD, 'italic', TW);
-      y += 8;
+      accent(y - 1, 18); y += 2;
+      y = txt(d.exercicio_intro, M + 7, y, 11, C.INK3, 'italic', TW - 7); y += 10;
 
-      const etapas = [
-        { num: '01', label: 'SEUS TALENTOS NATURAIS', text: d.exercicio_etapa_1 },
-        { num: '02', label: 'O QUE TE ENERGIZA',      text: d.exercicio_etapa_2 },
-        { num: '03', label: 'O QUE O MUNDO PEDE',     text: d.exercicio_etapa_3 },
-      ];
-
-      etapas.forEach(et => {
-        doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.2);
-        const etLines = doc.splitTextToSize(et.text, TW - 20);
-        const etH = etLines.length * 4.5 + 14;
-        doc.roundedRect(M, y, TW, etH, 1.5, 1.5, 'FD');
-        doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.GOLD);
-        doc.text(et.num, M + 4, y + 10);
-        doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.GOLDD);
-        doc.text(et.label, M + 14, y + 7);
-        doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.CREAM);
-        doc.text(etLines, M + 14, y + 13);
-        y += etH + 5;
+      [
+        { num: '01', lbl: 'SEUS TALENTOS NATURAIS', body: d.exercicio_etapa_1 },
+        { num: '02', lbl: 'O QUE TE ENERGIZA',      body: d.exercicio_etapa_2 },
+        { num: '03', lbl: 'O QUE O MUNDO PEDE',     body: d.exercicio_etapa_3 },
+      ].forEach(et => {
+        const eL = doc.splitTextToSize(et.body || '', TW - 18);
+        const eh = eL.length * 5.2 + 20;
+        doc.setFillColor(...C.PAPER2); doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.25);
+        doc.roundedRect(M, y, TW, eh, 1.5, 1.5, 'FD');
+        doc.setFillColor(...C.GOLD); doc.rect(M, y, TW, 1.5, 'F');
+        doc.setFontSize(20); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.GOLDFX);
+        doc.text(et.num, M + TW - 4, y + 16, { align: 'right' });
+        doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...C.GOLD); doc.setCharSpace(1.2);
+        doc.text(et.lbl, M + 5, y + 8); doc.setCharSpace(0);
+        doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.INK2);
+        doc.text(eL, M + 5, y + 15);
+        y += eh + 6;
       });
 
-      // box reflexão final
-      const rfLines = doc.splitTextToSize(d.exercicio_reflexao, TW - 8);
-      doc.setFillColor(20, 30, 65); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.25);
-      doc.roundedRect(M, y, TW, rfLines.length * 4.5 + 12, 1.5, 1.5, 'FD');
-      doc.setFontSize(10.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.GOLD);
-      doc.text(rfLines, M + 4, y + 9);
+      {
+        const rL = doc.splitTextToSize(d.exercicio_reflexao || '', TW - 12);
+        const rh = rL.length * 5.2 + 18;
+        doc.setFillColor(...C.PAPER3); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.4);
+        doc.roundedRect(M, y, TW, rh, 1.5, 1.5, 'FD');
+        doc.setFillColor(...C.GOLD); doc.rect(M, y, TW, 1.5, 'F');
+        doc.setFontSize(11); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.GOLD);
+        doc.text(rL, M + 6, y + 12);
+      }
 
       citation(d.exercicio_citacao);
       footer('14');
 
-      /* ════════════════════════════════════════════════
-         PÁG 15 — FECHAMENTO: O COMPROMISSO COM A ESSÊNCIA
-      ════════════════════════════════════════════════ */
+      /* ════════════════════════════════════════
+         PÁG 15 — FECHAMENTO
+      ════════════════════════════════════════ */
       np();
-      mandala(W / 2, 112, 54);
+      mandala(W / 2, 58, 28);
 
-      ctxt('✦', 28, 22, C.GOLD);
-      rule(36);
-      ctxt('SEU FECHAMENTO', 47, 8.5, C.GOLDD);
+      doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.INK3); doc.setCharSpace(3);
+      doc.text('SEU FECHAMENTO', W / 2, 78, { align: 'center' });
+      doc.setCharSpace(0);
+      doc.setDrawColor(...C.GOLDF); doc.setLineWidth(0.3);
+      doc.line(M + 20, 82, W - M - 20, 82);
 
-      y = 62;
-      y = txt(d.fecha_sintese,  M, y, 11, C.CREAM,  'normal', TW); y += 7;
-      rule(y, true); y += 8;
-      y = txt(d.fecha_convite,  M, y, 11, C.CREAM,  'normal', TW); y += 8;
+      y = 90;
+      y = txt(d.fecha_sintese, M, y, 11, C.INK2, 'normal', TW); y += 9;
+      rule(y, true); y += 9;
+      y = txt(d.fecha_convite, M, y, 11, C.INK2, 'normal', TW); y += 10;
 
-      // box compromisso
-      const compLines = doc.splitTextToSize(d.fecha_compromisso, TW - 8);
-      doc.setFillColor(...C.NAVY3); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.2);
-      doc.roundedRect(M, y, TW, compLines.length * 4.8 + 12, 1.5, 1.5, 'FD');
-      doc.setFontSize(10.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.CREAMD);
-      doc.text(compLines, M + 4, y + 9);
-      y += compLines.length * 4.8 + 20;
+      {
+        const cL = doc.splitTextToSize(d.fecha_compromisso || '', TW - 12);
+        const ch = cL.length * 5.2 + 18;
+        doc.setFillColor(...C.PAPER2); doc.setDrawColor(...C.GOLD); doc.setLineWidth(0.35);
+        doc.roundedRect(M, y, TW, ch, 1.5, 1.5, 'FD');
+        doc.setFillColor(...C.GOLD); doc.rect(M, y, TW, 1.5, 'F');
+        doc.setFontSize(11); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.INK2);
+        doc.text(cL, M + 6, y + 12);
+        y += ch + 14;
+      }
 
       rule(y); y += 12;
-      ctxt(d.fecha_frase_final, y, 14, C.GOLD, 'bold');
+      doc.setFontSize(17); doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.INK);
+      doc.text(d.fecha_frase_final || '', W / 2, y, { align: 'center' });
       y += 14;
-      ctxt('✦  ✦  ✦', y, 10, C.GOLD);
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.GOLDL); doc.setCharSpace(6);
+      doc.text('+ . + . +', W / 2, y, { align: 'center' }); doc.setCharSpace(0);
       y += 12;
-      ctxt(nomeExibicao, y, 11, C.WHITE, 'bold');
-      y += 7;
-      ctxt(`${d.data || '-'}  |  ${d.hora || '-'}  |  ${d.cidade || '-'}`, y, 8.5, C.GOLDD);
+      doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.INK);
+      doc.text(nome, W / 2, y, { align: 'center' });
+      y += 8;
+      doc.setFontSize(9.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.INK3);
+      doc.text(`${d.data || '—'}  ·  ${d.hora || '—'}  ·  ${(d.cidade||'—').split(',')[0]}`, W / 2, y, { align: 'center' });
 
       citation(d.fecha_citacao);
       footer('15');
 
       /* ── salva ── */
-      const slug = nomeExibicao.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+      const slug = nome.replace(/[^a-zA-Z0-9]/g, '_');
       doc.save(`Mapa_Proposito_de_Vida_${slug}.pdf`);
     }
 
+      /* ════════════════════════════════════════
+         HELPERS DE DESENHO
+      ════════════════════════════════════════ */
 
-    /* ═══════════════════════════════════════════════════════════
+      // Fundo + moldura dupla
+        /* ═══════════════════════════════════════════════════════════
        UTILITÁRIOS
     ═══════════════════════════════════════════════════════════ */
     function formatDate(dateStr) {
